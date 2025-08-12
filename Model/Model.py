@@ -1,4 +1,4 @@
-import re
+from collections import OrderedDict
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Dict, Optional, Union
@@ -33,9 +33,37 @@ class ModelAdapter:
         current_lines = []
 
         with open(path, 'r', encoding=self.encoding) as f:
+            blocks = OrderedDict()
+            current_block = None
+            current_lines = []
+            in_description = False
+
             for line in f:
+                # Detect start of DESCRIPTION
+                if "<DESCRIPTION>" in line:
+                    # Save previous block if it exists
+                    if current_block:
+                        blocks[current_block] = Block(header=current_block, body=current_lines)
+                        current_block, current_lines = None, []
+
+                    in_description = True
+                    current_block = "DESCRIPTION"
+                    current_lines = [line.rstrip()]  # include <DESCRIPTION>
+                    continue
+
+                # Inside DESCRIPTION block
+                if in_description:
+                    current_lines.append(line.rstrip())
+                    if "<END>" in line:
+                        blocks[current_block] = Block(header=current_block, body=current_lines)
+                        current_block, current_lines = None, []
+                        in_description = False
+                    continue
+
+                # Normal block header
                 header = parse_block_header(line)
                 if header:
+                    # Save previous block
                     if current_block:
                         blocks[current_block] = Block(header=current_block, body=current_lines)
                     current_block = header
@@ -43,7 +71,8 @@ class ModelAdapter:
                 elif line.strip():
                     current_lines.append(line.rstrip())
 
-            if current_block:
+            # Save last block if needed
+            if current_block and current_block not in blocks:
                 blocks[current_block] = Block(header=current_block, body=current_lines)
 
         return Model(path=str(path), blocks=blocks, encoding=self.encoding)
@@ -53,12 +82,16 @@ class ModelAdapter:
         path = folder_path / f"{model_name}.MDL"
 
         block_texts = []
-        
+
         for block in model.blocks.values():
-            if block.body:
-                block_text = f"*{block.header}*\n" + "\n".join(block.body)
+            if block.header == "DESCRIPTION":
+                # 5 blank lines before DESCRIPTION content
+                block_text = ("\n" * 5) + "\n".join(block.body)
             else:
-                block_text = f"*{block.header}*"
+                if block.body:
+                    block_text = f"*{block.header}*\n" + "\n".join(block.body)
+                else:
+                    block_text = f"*{block.header}*"
             block_texts.append(block_text)
 
         text = "\n".join(block_texts).strip() + "\n"
