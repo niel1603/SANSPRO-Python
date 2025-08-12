@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from Model.Model import ModelAdapter
 
 from Output.Output import OutputAdapter
@@ -8,14 +10,22 @@ from Variable.Loading import LoadingParse, LoadingEngine, LoadingAdapter
 from ObjectCollection.PointLoads import PointLoadsAdapter
 
 # Step 1 Create new model with template load combination
+# -> Input full_path
+#   -> klik kanan file model
+#   -> copy path
+#   -> paste dalam full_path 
 # -> Run python
-# -> Run model generated using SANSPRO
+# -> Run model generated (model_name_LOADCOM.MDL) using SANSPRO
 
 # ==============================
 # Input 
-folder_path = "./data/SANSPRO_UB L7_v3"
-model_name = "SANSPRO_UB L7_v3"
+full_path = Path(
+    r""
+)
 # ==============================
+
+folder_path = str(full_path.parent)
+model_name = full_path.stem
 
 output_model_name = f"{model_name}_LOADCOMB"
 
