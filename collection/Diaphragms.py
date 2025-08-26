@@ -1,9 +1,9 @@
 from typing import List, Optional, Type
 
-from Model.Model import Model
-from ObjectCollection.CollectionAbstract import Collection, CollectionParser, ObjectCollectionQuery, ObjectCollectionEngine, ObjectCollectionAdapter
+from model.Model import Model
+from collection.CollectionAbstract import Collection, CollectionParser, ObjectCollectionQuery, ObjectCollectionEngine, ObjectCollectionAdapter
 
-from Object.Diaphargm import Diaphragm
+from object.Diaphargm import Diaphragm
 
 class Diaphragms(Collection[Diaphragm]):
     header = 'MDIAPHTAB'

@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
-from Object.ObjectAbstract import Object
-from Object.Node import Node
+from object.ObjectAbstract import Object
+from object.Node import Node
 
 @dataclass
 class PointLoad(Object):

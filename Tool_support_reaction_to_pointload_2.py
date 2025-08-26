@@ -1,16 +1,16 @@
 from pathlib import Path
 
-from Model.Model import ModelAdapter
-from Output.Output import OutputAdapter
+from model.Model import ModelAdapter
+from output.Output import OutputAdapter
 
-from Output.SupportReactions import SupportReactionsEngine
-from Variable.Loading import LoadingParse, LoadingEngine, LoadingAdapter
+from output.SupportReactions import SupportReactionsEngine
+from variable.Loading import LoadingParse, LoadingEngine, LoadingAdapter
 
-from ObjectCollection.Nodes import NodesParse, NodeQuery, NodesEngine, NodesAdapter
-from ObjectCollection.PointLoads import PointLoadsParse, PointLoadsAdapter
+from collection.Nodes import NodesParse, NodeQuery, NodesEngine, NodesAdapter
+from collection.PointLoads import PointLoadsParse, PointLoadsAdapter
 
 
-from Adapter.Excel import export_multiple_collections_to_excel
+from util.Excel import export_multiple_collections_to_excel
 
 
 # Step 2 : convert reaction to point load
@@ -24,9 +24,9 @@ from Adapter.Excel import export_multiple_collections_to_excel
 #    -> Excel generated then convert to desired format
 
 # ==============================
-# Input 
+# Input base model path
 full_path = Path(
-    r""
+    r"D:\COMPUTATIONAL\Python\SANSPRO\data\Model\SANSPRO_UB L7_v3\SANSPRO_UB L7_v3.MDL"
 )
 # ==============================
 

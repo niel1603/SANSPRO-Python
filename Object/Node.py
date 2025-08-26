@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from Object.ObjectAbstract import Object
+from object.ObjectAbstract import Object
 
 @dataclass
 class Node(Object):

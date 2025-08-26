@@ -1,7 +1,7 @@
 from typing import ClassVar, Dict
 from dataclasses import dataclass
 
-from Variable.VariableAbstract import Variable, VariableParse, VariableAdapter
+from variable.VariableAbstract import Variable, VariableParse, VariableAdapter
 
 @dataclass
 class Building(Variable):

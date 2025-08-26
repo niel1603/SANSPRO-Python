@@ -1,12 +1,12 @@
 from typing import List, Optional, Type
 
-from Model.Model import Model
-from Object.Node import Node
-from ObjectCollection.CollectionAbstract import Collection, CollectionParser, ObjectCollectionQuery, ObjectCollectionEngine, ObjectCollectionAdapter
+from model.Model import Model
+from object.Node import Node
+from collection.CollectionAbstract import Collection, CollectionParser, ObjectCollectionQuery, ObjectCollectionEngine, ObjectCollectionAdapter
 
-from Variable.Building import BuildingParse, BuildingAdapter
-from Variable.Parameter import ParameterParse, ParameterAdapter
-from ObjectCollection.Diaphragms import DiaphragmsParse, DiaphragmsEngine, DiaphragmsAdapter
+from variable.Building import BuildingParse, BuildingAdapter
+from variable.Parameter import ParameterParse, ParameterAdapter
+from collection.Diaphragms import DiaphragmsParse, DiaphragmsEngine, DiaphragmsAdapter
 
 class Nodes(Collection[Node]):
     header = 'NODEXY'

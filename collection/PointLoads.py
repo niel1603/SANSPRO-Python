@@ -1,11 +1,11 @@
 from typing import List, Optional, Type
 
-from Model.Model import Model
-from ObjectCollection.Nodes import Nodes, NodesParse
-from Object.PointLoad import PointLoad
-from ObjectCollection.CollectionAbstract import Collection, CollectionParser, ObjectCollectionQuery, ObjectCollectionEngine, ObjectCollectionAdapter
+from model.Model import Model
+from collection.Nodes import Nodes, NodesParse
+from object.PointLoad import PointLoad
+from collection.CollectionAbstract import Collection, CollectionParser, ObjectCollectionQuery, ObjectCollectionEngine, ObjectCollectionAdapter
 
-from Variable.Parameter import ParameterParse, ParameterAdapter
+from variable.Parameter import ParameterParse, ParameterAdapter
 
 class PointLoads(Collection[PointLoad]):
     header = 'JLOAD'

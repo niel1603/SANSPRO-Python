@@ -1,13 +1,13 @@
 from pathlib import Path
 
-from Model.Model import ModelAdapter
+from model.Model import ModelAdapter
 
-from Output.Output import OutputAdapter
-from Output.SupportReactions import SupportReactionsEngine
+from output.Output import OutputAdapter
+from output.SupportReactions import SupportReactionsEngine
 
-from Variable.Loading import LoadingParse, LoadingEngine, LoadingAdapter
+from variable.Loading import LoadingParse, LoadingEngine, LoadingAdapter
 
-from ObjectCollection.PointLoads import PointLoadsAdapter
+from collection.PointLoads import PointLoadsAdapter
 
 # Step 1 Create new model with template load combination
 # -> Input full_path
@@ -18,9 +18,9 @@ from ObjectCollection.PointLoads import PointLoadsAdapter
 # -> Run model generated (model_name_LOADCOM.MDL) using SANSPRO
 
 # ==============================
-# Input 
+# Input base model path
 full_path = Path(
-    r""
+    r"D:\COMPUTATIONAL\Python\SANSPRO\data\Model\SANSPRO_UB L7_v3\SANSPRO_UB L7_v3.MDL"
 )
 # ==============================
 

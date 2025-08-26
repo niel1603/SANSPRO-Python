@@ -4,10 +4,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Union
 
-from Object.Node import Node
-from Object.PointLoad import PointLoad
-from ObjectCollection.PointLoads import PointLoads
-from ObjectCollection.Nodes import Nodes
+from object.Node import Node
+from object.PointLoad import PointLoad
+from collection.PointLoads import PointLoads
+from collection.Nodes import Nodes
 
 @dataclass
 class SupportReaction:

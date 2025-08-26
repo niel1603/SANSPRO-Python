@@ -1,8 +1,8 @@
 from abc import ABC, abstractmethod
 from typing import List, Dict, Optional, Type, TypeVar, Generic, Union
 
-from Model.Model import Model, BlockAdapter
-from Object.ObjectAbstract import Object
+from model.Model import Model, BlockAdapter
+from object.ObjectAbstract import Object
 
 M = TypeVar('M', bound='Model')
 T = TypeVar('T', bound='Object')

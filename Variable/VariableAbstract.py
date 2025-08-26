@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from dataclasses import fields
 from typing import Dict, TypeVar, Type, Generic
 
-from Model.Model import Block, Model, BlockAdapter
+from model.Model import Block, Model, BlockAdapter
 
 T = TypeVar("T", bound="Variable")
 

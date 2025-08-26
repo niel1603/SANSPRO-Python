@@ -3,11 +3,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Union
 
-from Model.Model import ModelAdapter
-from ObjectCollection.Nodes import Nodes
-from ObjectCollection.Nodes import NodesParse
+from model.Model import ModelAdapter
+from collection.Nodes import Nodes
+from collection.Nodes import NodesParse
 
-from Output.SupportReactions import SupportReactions, SupportReactionsParser
+from output.SupportReactions import SupportReactions, SupportReactionsParser
 
 
 @dataclass

@@ -1,8 +1,8 @@
 import re
 from typing import ClassVar, Dict, List, Union, Tuple, Any
 from dataclasses import dataclass, fields, field
-from Model.Model import Block, Model, BlockAdapter
-from Variable.VariableAbstract import Variable, VariableParse, VariableAdapter
+from model.Model import Block, Model, BlockAdapter
+from variable.VariableAbstract import Variable, VariableParse, VariableAdapter
 
 @dataclass
 class Loading(Variable):
