@@ -636,7 +636,7 @@ class DesignFactory:
     ) -> ReinforcedConcrete:
         
 
-        fc1 = material.fc1 * 10
+        fc1 = material.fc1
 
         ec = material.elastic_mod
         fci = 0.45 * fc1

@@ -1,3 +1,4 @@
+import re
 from typing import Dict, Type, List, Tuple
 
 from SANSPRO.model.Model import Model
@@ -200,17 +201,17 @@ class MaterialsFactory:
 
         if type_name == "ISOTROPIC":
 
-            if not name.startswith("FC"):
-                raise ValueError(f"Invalid name '{name}': must start with 'FC'")
+            _, fc1 = self._split_isotropic(name)
 
-            fc1 = float(name[2:])
+            fc1_kgcm = fc1 * 10 # conver MPa to kg/cm2
 
             # Empirical elastic modulus
-            elastic_mod = ((fc1 ** 0.5) * 4700) / 0.0981296488921163
-            elastic_mod = round(elastic_mod, 1)
+            elastic_mod = ( 4700 * (fc1 ** 0.5) )
+            elastic_mod_kgcm = elastic_mod * 1/9.81 * 100 # conver MPa to kg/cm2
+            elastic_mod_kgcm = round(elastic_mod_kgcm, 1)
 
             poisson_ratio = 0.2
-            shear_mod = elastic_mod / (2 * (1 + poisson_ratio))
+            shear_mod = elastic_mod_kgcm / (2 * (1 + poisson_ratio))
             shear_mod = round(shear_mod, 1)
 
             return MaterialIsotropic(
@@ -220,7 +221,7 @@ class MaterialsFactory:
                 name=name,
                 misc1=(0, 0, 0, 0),
 
-                fc1=fc1,
+                fc1=fc1_kgcm,
                 time_dependent=False,
                 alpha=0.0,
                 beta=0.0,
@@ -228,7 +229,7 @@ class MaterialsFactory:
 
                 thermal_coeficient=1e-05,
                 unit_weight=0.0024,
-                elastic_mod=elastic_mod,
+                elastic_mod=elastic_mod_kgcm,
                 shear_mod=shear_mod,
                 poisson_ratio=poisson_ratio,
             )
@@ -260,6 +261,14 @@ class MaterialsFactory:
         if name.startswith("fc"):
             return "ISOTROPIC"
         raise KeyError(f"Cannot infer type from name '{name}'")
+    
+    @staticmethod
+    def _split_isotropic(name: str):
+        m = re.match(r"^([A-Za-z]+)(\d+\.?\d*)$", name)
+        if not m:
+            raise ValueError(f"Invalid format for prefix+value: '{name}'")
+        prefix, num = m.groups()
+        return prefix, float(num)
 
     def create_all(self) -> "Materials":
         """
