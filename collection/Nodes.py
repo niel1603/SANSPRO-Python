@@ -1,30 +1,36 @@
 from typing import List, Optional, Type
 
-from model.Model import Model
-from object.Node import Node
-from collection.CollectionAbstract import Collection, CollectionParser, ObjectCollectionQuery, ObjectCollectionEngine, ObjectCollectionAdapter
+from SANSPRO.model.Model import Model
+from SANSPRO.object.Node import Node
+from SANSPRO.collection.CollectionAbstract import Collection, CollectionParser, ObjectCollectionQuery, ObjectCollectionEngine, ObjectCollectionAdapter
 
-from variable.Building import BuildingParse, BuildingAdapter
-from variable.Parameter import ParameterParse, ParameterAdapter
-from collection.Diaphragms import DiaphragmsParse, DiaphragmsEngine, DiaphragmsAdapter
+from SANSPRO.variable.Building import BuildingParse, BuildingAdapter
+from SANSPRO.variable.Parameter import ParameterParse, ParameterAdapter
+from SANSPRO.collection.Diaphragms import DiaphragmsParse, DiaphragmsEngine, DiaphragmsAdapter
 
 class Nodes(Collection[Node]):
     header = 'NODEXY'
         
 class NodesParse(CollectionParser[Model, Node, Nodes]):
+    LINES_PER_ITEM = 1
 
     @classmethod
     def get_collection(cls) -> Type[Nodes]:
         return Nodes
 
     @classmethod
-    def parse_line(cls, line: str) -> Node:
-        parts = line.strip().split()
+    def parse_line(cls, lines: List[str]) -> Node:
+        tokens = [line.strip().split() for line in lines]
+        return cls._parse_node(tokens)
+
+    @staticmethod
+    def _parse_node(tokens: List[List[str]]) -> Node:
+        l0 = tokens[0]
         return Node(
-            index=int(parts[0]),
-            x=float(parts[1]),
-            y=float(parts[2]),
-            z=float(parts[3])
+            index=int(l0[0]),
+            x=float(l0[1]),
+            y=float(l0[2]),
+            z=float(l0[3]),
         )
     
 class NodesAdapter(ObjectCollectionAdapter[Model, Node, Nodes]):
@@ -48,9 +54,9 @@ class NodesAdapter(ObjectCollectionAdapter[Model, Node, Nodes]):
 
     @classmethod
     def format_line(cls, node: Node) -> str:
-        x_str = cls.norm_float(node.x)
-        y_str = cls.norm_float(node.y)
-        z_str = cls.norm_float(node.z)
+        x_str = cls._norm_float(node.x)
+        y_str = cls._norm_float(node.y)
+        z_str = cls._norm_float(node.z)
         return f"   {node.index}  {x_str} {y_str}  {z_str}   "
 
 class NodeQuery(ObjectCollectionQuery[Node, Nodes]):

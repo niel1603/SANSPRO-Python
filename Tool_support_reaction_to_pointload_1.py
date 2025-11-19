@@ -20,7 +20,7 @@ from collection.PointLoads import PointLoadsAdapter
 # ==============================
 # Input base model path
 full_path = Path(
-    r"D:\COMPUTATIONAL\Python\SANSPRO\data\Model\SANSPRO_UB L7_v3\SANSPRO_UB L7_v3.MDL"
+    r"F:\DANIEL\1_PROJECTS\G12372_Solo Urbana Bolon\CALCULATION\SANSPRO\L7\SANSPRO_UB L7_3_8.MDL"
 )
 # ==============================
 

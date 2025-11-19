@@ -1,7 +1,8 @@
 from typing import List
+
 from dataclasses import dataclass, field
 
-from object.ObjectAbstract import Object
+from SANSPRO.object.ObjectAbstract import Object
 
 @dataclass
 class Diaphragm(Object):

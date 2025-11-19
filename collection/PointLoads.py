@@ -1,9 +1,9 @@
 from typing import List, Optional, Type
 
-from model.Model import Model
-from collection.Nodes import Nodes, NodesParse
-from object.PointLoad import PointLoad
-from collection.CollectionAbstract import Collection, CollectionParser, ObjectCollectionQuery, ObjectCollectionEngine, ObjectCollectionAdapter
+from SANSPRO.model.Model import Model
+from SANSPRO.collection.Nodes import Nodes, NodesParse
+from SANSPRO.object.PointLoad import PointLoad
+from SANSPRO.collection.CollectionAbstract import Collection, CollectionParser, ObjectCollectionQuery, ObjectCollectionEngine, ObjectCollectionAdapter
 
 from variable.Parameter import ParameterParse, ParameterAdapter
 
@@ -68,12 +68,12 @@ class PointLoadsAdapter(ObjectCollectionAdapter[Model, PointLoad, PointLoads]):
 
         floor = int(point_load.floor)
         node = int(point_load.node.index)
-        fx = cls.norm_float(point_load.fx)
-        fy = cls.norm_float(point_load.fy)
-        fz = cls.norm_float(point_load.fz)
-        mx = cls.norm_float(point_load.mx)
-        my = cls.norm_float(point_load.my)
-        mz = cls.norm_float(point_load.mz)
+        fx = cls._norm_float(point_load.fx)
+        fy = cls._norm_float(point_load.fy)
+        fz = cls._norm_float(point_load.fz)
+        mx = cls._norm_float(point_load.mx)
+        my = cls._norm_float(point_load.my)
+        mz = cls._norm_float(point_load.mz)
 
         misc = int(point_load.misc)
         blast = int(point_load.blast)

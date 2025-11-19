@@ -1,9 +1,9 @@
 from typing import List, Optional, Type
 
-from model.Model import Model
-from collection.CollectionAbstract import Collection, CollectionParser, ObjectCollectionQuery, ObjectCollectionEngine, ObjectCollectionAdapter
+from SANSPRO.model.Model import Model
+from SANSPRO.collection.CollectionAbstract import Collection, CollectionParser, ObjectCollectionQuery, ObjectCollectionEngine, ObjectCollectionAdapter
 
-from object.Diaphargm import Diaphragm
+from SANSPRO.object.Diaphargm import Diaphragm
 
 class Diaphragms(Collection[Diaphragm]):
     header = 'MDIAPHTAB'

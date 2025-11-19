@@ -1,5 +1,5 @@
-from Model.Model import ModelAdapter
-from ObjectCollection.Nodes import NodesParse, NodeQuery, NodesEngine, NodesAdapter
+from model.Model import ModelAdapter
+from collection.Nodes import NodesParse, NodeQuery, NodesEngine, NodesAdapter
 
 # Input
 # Number
