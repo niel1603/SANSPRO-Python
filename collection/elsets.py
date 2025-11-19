@@ -561,12 +561,10 @@ class ElsetMerger:
         materials_cmp = MaterialsComparer(self.existing_materials, self.imported_materials)
         merged_materials, _, _ = materials_cmp.merge_and_reorder(unique_attr="name")
 
-        for m_m in merged_materials:
-            print(m_m.name)
-
         # ------------------------------------------------------
         # 2) Merge Designs (master ordering)
         # ------------------------------------------------------
+
         designs_cmp = DesignsComparer(existing_designs, imported_designs)
         merged_designs, reorder_design_map, _ = designs_cmp.merge_and_reorder(
             unique_attr="name",

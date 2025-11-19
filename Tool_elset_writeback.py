@@ -142,5 +142,5 @@ model = ColumnLayoutsAdapter.to_model(col_layouts, model)
 model = SlabsAdapter.to_model(slabs, model)
 model = RegionsAdapter.to_model(regions, model)
 
-output_model_name = f"{model_name}"
+output_model_name = f"{model_name}_ELSET"
 model_adapter.to_text(model= model, folder_path=folder_path, model_name=output_model_name)
