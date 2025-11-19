@@ -307,18 +307,25 @@ class ObjectCollectionEngine(ABC, Generic[T, C]):
                *args, **kwargs) -> C:
         """Extend base_collection with new objects up to target_index."""
         pass
+
 class CollectionComparer(ABC, Generic[M, T, C]):
 
     def __init__(self, existing, imported):
-        self.existing = existing
-        self.imported = imported
+        self.existing  = existing
+        self.imported  = imported
 
+    # ------------------------------------------------------------------
+    # Default sort: by name (case-insensitive) or fallback to +inf
+    # ------------------------------------------------------------------
     @staticmethod
     def get_sort_key(obj):
         if hasattr(obj, "name"):
             return obj.name.lower()
         return float("inf")
 
+    # ------------------------------------------------------------------
+    # MAIN MERGE PIPELINE
+    # ------------------------------------------------------------------
     def merge_and_reorder(
         self,
         key: Callable[[T], Any] = None,
@@ -327,8 +334,8 @@ class CollectionComparer(ABC, Generic[M, T, C]):
         used_elsets: Optional[Set[int]] = None,
     ) -> Tuple[C, Dict[int, int], bool]:
 
-        used_elsets = used_elsets or set()
         key = key or self.get_sort_key
+        used_elsets = used_elsets or set()
 
         existing_lookup = {
             getattr(o, unique_attr): o for o in self.existing.objects
@@ -337,77 +344,99 @@ class CollectionComparer(ABC, Generic[M, T, C]):
             getattr(o, unique_attr): o for o in self.imported.objects
         }
 
-        # 🔹 snapshot original indices BEFORE we mutate anything
-        old_index_by_name: dict[str, int] = {
+        # Store original indices before mutation
+        old_index_by_name = {
             name: obj.index for name, obj in existing_lookup.items()
         }
 
         merged: list[T] = []
 
-        # --------------------------------------------------------
-        # Step 1: existing items (with removal rules + overwrite)
-        # --------------------------------------------------------
+        # ================================================================
+        # 1) EXISTING ITEMS — REMOVE_MISSING PROTOCOL
+        # ================================================================
         for name, old_obj in existing_lookup.items():
 
-            if name in imported_lookup or old_obj.index in used_elsets:
-                if name in imported_lookup:
-                    imp_obj = imported_lookup[name]
-                    # overwrite properties from imported → existing
-                    self._copy_attributes_overwriting(old_obj, imp_obj)
+            if name in imported_lookup:
+                # A → imported overwrites existing
+                imp_obj = imported_lookup[name]
+                self._copy_attributes_overwriting(old_obj, imp_obj)
                 merged.append(old_obj)
-            else:
-                # missing + unused → dropped
-                pass
+                continue
 
-        # --------------------------------------------------------
-        # Step 2: add NEW imported items
-        # --------------------------------------------------------
+            # B → missing in imported
+
+            if not remove_missing:
+                # remove_missing=False → KEEP ALL existing
+                merged.append(old_obj)
+                continue
+
+            # remove_missing=True → remove UNLESS protected by used_elsets
+            if old_obj.index in used_elsets:
+                merged.append(old_obj)
+                continue
+
+            # remove_missing=True + unused → drop
+            pass
+
+        # ================================================================
+        # 2) NEW IMPORTED ITEMS (names not in existing)
+        # ================================================================
         for name, imp_obj in imported_lookup.items():
             if name not in existing_lookup:
                 merged.append(imp_obj)
 
-        # --------------------------------------------------------
-        # Step 3: sort
-        # --------------------------------------------------------
+        # ================================================================
+        # 3) SORT MERGED RESULT
+        # ================================================================
         merged_sorted = sorted(merged, key=key)
 
-        # Build name → new index
-        name_to_new_index: dict[str, int] = {
+        # ================================================================
+        # 4) BUILD NEW INDEX MAP (name → new index)
+        # ================================================================
+        name_to_new_index = {
             getattr(obj, unique_attr): idx
             for idx, obj in enumerate(merged_sorted, start=1)
         }
 
-        # --------------------------------------------------------
-        # Step 4: build reorder_map using ORIGINAL indices
-        # --------------------------------------------------------
-        reorder_map: dict[int, int] = {}
-        for name, old_idx in old_index_by_name.items():
-            if name in name_to_new_index:
-                reorder_map[old_idx] = name_to_new_index[name]
-            # else: that existing object was removed
+        # ================================================================
+        # 5) REORDER MAP (old idx → new idx)
+        # Only for items that still exist after merge
+        # ================================================================
+        reorder_map: dict[int, int] = {
+            old_idx: name_to_new_index[name]
+            for name, old_idx in old_index_by_name.items()
+            if name in name_to_new_index
+        }
 
-        # --------------------------------------------------------
-        # Step 5: now rewrite indices to new positions
-        # --------------------------------------------------------
+        # ================================================================
+        # 6) REASSIGN NEW INDICES (mutate objects)
+        # ================================================================
         for idx, obj in enumerate(merged_sorted, start=1):
             obj.index = idx
 
-        # --------------------------------------------------------
-        # Step 6: wrap
-        # --------------------------------------------------------
+        # ================================================================
+        # 7) BUILD NEW COLLECTION
+        # ================================================================
         collection_cls = type(self.existing)
         merged_collection = collection_cls(merged_sorted)
 
-        removed_any = len(reorder_map) != len(self.existing.objects)
+        # ================================================================
+        # 8) REMOVAL FLAG
+        # Detect ANY removed existing item accurately
+        # ================================================================
+        removed_any = any(
+            name not in name_to_new_index 
+            for name in existing_lookup
+        )
 
         return merged_collection, reorder_map, removed_any
 
-    # ------------------------------------------------------------
-    # Copy imported fields INTO existing, but keep index intact
-    # ------------------------------------------------------------
+    # ------------------------------------------------------------------
+    # Attribute overwrite: imported → existing (never touch index)
+    # ------------------------------------------------------------------
     @staticmethod
     def _copy_attributes_overwriting(existing_obj, imported_obj):
         for attr, value in imported_obj.__dict__.items():
             if attr == "index":
-                continue  # NEVER overwrite index
+                continue
             setattr(existing_obj, attr, value)

@@ -31,7 +31,7 @@ from SANSPRO.collection.elsets import ElsetsParse
 # ==============================
 
 full_path = Path(
-    r"D:\COMPUTATIONAL\Model\SANSPRO\ANANDA TERRACE\CLUBHOUSE\CLUB HOUSE_BALAI WARGA_POINT LOAD_CASE COMPLETE SIMPLIFIED_3_2_ELSET.MDL"
+    r"D:\COMPUTATIONAL\Model\SANSPRO\ANANDA TERRACE\CLUBHOUSE\CLUB HOUSE_BALAI WARGA_POINT LOAD_CASE COMPLETE SIMPLIFIED_3_2.MDL"
 )
 folder_path = str(full_path.parent)
 model_name = full_path.stem
