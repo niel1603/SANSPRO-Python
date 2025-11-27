@@ -1,11 +1,14 @@
-import re
+from openpyxl import Workbook
+import os
+from enum import Enum
+from typing import List, Tuple
 from abc import ABC, abstractmethod
-from dataclasses import asdict
+from dataclasses import is_dataclass, fields
 
 from typing import List, Dict, Optional, Type, TypeVar, Generic, Union, Callable, Any, Set, Tuple
 
-from SANSPRO.model.Model import Model, BlockAdapter
-from SANSPRO.object.ObjectAbstract import Object
+from SANSPRO.model.model import Model, BlockAdapter
+from object._object_abstract import Object
 
 M = TypeVar('M', bound='Model')
 T = TypeVar('T', bound='Object')
@@ -69,44 +72,36 @@ class Collection(Generic[T]):
     # ==========================================================
     # 🔹 Strict Elset Collector
     # ==========================================================
+
     def get_used_elsets(self) -> Set[int]:
         """
         Return all unique Elset indices referenced by this collection.
-        Supports both flat and layered collections (e.g., BeamLayouts).
-        Raises AttributeError if no elset references are found.
+        Empty set if none found.
         """
         if not self.objects:
             return set()
 
         used: set[int] = set()
-        found_any = False
 
         for obj in self.objects:
-            # --- Case 1: object directly has .elset
+            # Direct elset
             if hasattr(obj, "elset"):
                 elset = getattr(obj, "elset")
                 if elset is not None:
                     used.add(elset.index)
-                    found_any = True
+                continue
 
-            # --- Case 2: object has nested list/collection with elset references
-            else:
-                for attr_name, attr_value in vars(obj).items():
-                    if isinstance(attr_value, list):
-                        for item in attr_value:
-                            if hasattr(item, "elset"):
-                                elset = getattr(item, "elset")
-                                if elset is not None:
-                                    used.add(elset.index)
-                                    found_any = True
-
-        if not found_any:
-            raise AttributeError(
-                f"{type(self).__name__} does not contain (or wrap) objects with an 'elset' attribute"
-            )
+            # Nested lists
+            for _, attr_value in vars(obj).items():
+                if isinstance(attr_value, list):
+                    for item in attr_value:
+                        if hasattr(item, "elset"):
+                            elset = getattr(item, "elset")
+                            if elset is not None:
+                                used.add(elset.index)
 
         return used
-    
+
     # ==========================================================
     # NAME LOOKUP UTILITIES
     # ==========================================================
@@ -180,33 +175,6 @@ class CollectionParser(ABC, Generic[M, T, C]):
 
         return collection_cls(parsed_items)
     
-    # Older version, perfectly able to handle one line text
-    # for example *NODEXY*
-
-
-    # @classmethod
-    # def from_model(cls, model: M) -> C:
-    #     collection_cls = cls.get_collection()
-    #     block = SANSPRO.model.blocks.get(collection_cls.header)
-    #     parsed_items: List[T] = []
-
-    #     print('block:')
-    #     print(block)
-
-    #     for i, line in enumerate(block.body, start=1):
-    #         print(f"\n[DEBUG] Line {i}: {repr(line)}")
-    #         parts = line.split()
-    #         print(f"[DEBUG] Split parts: {parts}")
-
-    #         parsed_item = cls.parse_line(line)
-    #         print(f"[DEBUG] Parsed item: {parsed_item}")
-
-    #         parsed_items.append(parsed_item)
-
-    # New version, try to adapt to the multiple line definition
-    # for example *SECTION*
-
-
 class ObjectCollectionAdapter(ABC, Generic[M, T, C]):
   
     @classmethod
@@ -247,10 +215,6 @@ class ObjectCollectionAdapter(ABC, Generic[M, T, C]):
         model = cls.update_var(collection, model)
         return model
     
-    # @classmethod
-    # def _norm_float(cls, value: float) -> Union[int, float]:
-    #     return int(value) if value.is_integer() else value
-
     @classmethod
     def _norm_float(cls, value) -> Union[int, float]:
         value = float(value)
@@ -269,6 +233,297 @@ class ObjectCollectionAdapter(ABC, Generic[M, T, C]):
 
         return value
     
+    # -------------------------------------------------------------
+    # EXCEL EXPORT
+    # -------------------------------------------------------------
+    
+    @classmethod
+    def _to_excel_safe(cls, value):
+        if value is None:
+            return ""
+        if isinstance(value, float):
+            return cls._norm_float_sci(value)
+        return value
+
+    @classmethod
+    def _flatten(cls, obj, prefix="", visited=None, depth=0, *, root=True):
+        if visited is None:
+            visited = set()
+        if depth > 20:
+            return {prefix[:-1]: "<DepthLimit>"}
+
+        oid = id(obj)
+        if oid in visited:
+            return {prefix[:-1]: "<CircularRef>"}
+        visited.add(oid)
+
+        # ------------------------------------------------------------
+        # 1) Primitive
+        # ------------------------------------------------------------
+        if isinstance(obj, (str, int, float, bool)) or obj is None:
+            return {prefix[:-1]: obj}
+
+        # ------------------------------------------------------------
+        # 2) COLLAPSE nested Object-subclasses to index
+        # ------------------------------------------------------------
+        # NOTE: this must be BEFORE any asdict/vars()
+        if is_dataclass(obj) and isinstance(obj, Object) and not root:
+            return {prefix[:-1]: obj.index}
+
+        # ------------------------------------------------------------
+        # 3) Expand dataclass normally (but only here)
+        # ------------------------------------------------------------
+        if is_dataclass(obj):
+            obj = obj.__dict__     # <-- NOT asdict() !!!
+        elif hasattr(obj, "__dict__") and not isinstance(obj, type):
+            obj = obj.__dict__
+        elif isinstance(obj, dict):
+            obj = obj
+        else:
+            return {prefix[:-1]: obj}
+
+        # ------------------------------------------------------------
+        # 4) Recurse into fields
+        # ------------------------------------------------------------
+        flat = {}
+        for key, value in obj.items():
+            name = f"{prefix}{key}"
+
+            if (
+                is_dataclass(value)
+                or hasattr(value, "__dict__")
+                or isinstance(value, dict)
+            ):
+                flat.update(
+                    cls._flatten(
+                        value,
+                        prefix=f"{name}.",
+                        visited=visited,
+                        depth=depth+1,
+                        root=False,
+                    )
+                )
+            else:
+                flat[name] = value
+
+        return flat
+
+
+    @classmethod
+    def _prune_empty_nested(cls, flat: dict) -> dict:
+        """
+        Remove nested group columns (e.g. node.index, node.x, node.y, node.z)
+        if the group has no meaningful data except index.
+        """
+        groups = {}
+
+        for key, val in flat.items():
+            if "." not in key:
+                continue
+            root, child = key.split(".", 1)
+            groups.setdefault(root, {})[child] = val
+
+        to_delete = []
+
+        for root, children in groups.items():
+            idx_key = f"{root}.index"
+            if idx_key not in flat:
+                continue
+
+            payload = {k: v for k, v in children.items() if k != "index"}
+
+            # define empty nested: all None/""/0
+            empty = all(v in (None, "", 0) for v in payload.values())
+
+            if empty:
+                for k in [f"{root}.{c}" for c in children.keys()]:
+                    to_delete.append(k)
+
+        for k in to_delete:
+            flat.pop(k, None)
+
+        return flat
+
+    @classmethod
+    def export_to_excel(
+        cls,
+        collections: List[Tuple[str, C]],
+        folder_path: str,
+        excel_name: str,
+    ):
+        """
+        Export collections to Excel.
+        Each collection must be (sheet_name, collection_object).
+        Uses internal flatten + pruning rules.
+        """
+        if not collections:
+            raise ValueError("No collections provided")
+
+        os.makedirs(folder_path, exist_ok=True)
+        filepath = os.path.join(folder_path, f"{excel_name}.xlsx")
+
+        wb = Workbook()
+        wb.remove(wb.active)
+
+        for sheet_name, collection in collections:
+            objs = collection.objects
+            if not objs:
+                continue
+
+            ws = wb.create_sheet(title=sheet_name)
+
+            # compute headers from first object
+            first_flat = cls._flatten(objs[0])
+            headers = list(first_flat.keys())
+            ws.append(headers)
+
+            # write objects
+            for obj in objs:
+                flat = cls._flatten(obj)
+                row = [flat.get(h, "") for h in headers]
+                ws.append(row)
+
+        wb.save(filepath)
+        print(f"✅ Exported {len(collections)} collections → {filepath}")
+
+
+    # -------------------------------------------------------------
+    # IMPORT EXCEL
+    # -------------------------------------------------------------
+
+    @classmethod
+    def _resolve_references(cls, collections: dict):
+        """
+        Replace placeholder nested objects with real instances,
+        matched by (type, index).
+        """
+
+        # Build global lookup
+        lookup = {}
+
+        for coll in collections.values():
+            if not hasattr(coll, "objects"):
+                continue
+
+            for obj in coll.objects:
+                if isinstance(obj, Object):
+                    lookup[(type(obj), obj.index)] = obj
+
+        # Resolve nested references
+        for coll in collections.values():
+            for obj in coll.objects:
+                for f in fields(type(obj)):
+                    val = getattr(obj, f.name)
+
+                    # is it a placeholder nested object?
+                    if isinstance(val, Object) and val.index is not None:
+                        key = (type(val), val.index)
+
+                        if key in lookup:
+                            setattr(obj, f.name, lookup[key])
+                        else:
+                            print(f"⚠ Missing reference: {type(val).__name__}[{val.index}]")
+
+
+    @classmethod
+    def _from_excel_row(cls, data: dict, dataclass_type):
+        kwargs = {}
+
+        for field in fields(dataclass_type):
+            name = field.name
+
+            if name not in data:
+                continue
+
+            value = data[name]
+
+            # Nested Object field
+            if issubclass(field.type, Object):
+                if value in ("", None):
+                    kwargs[name] = None
+                else:
+                    sub = field.type.__new__(field.type)
+                    sub.index = int(value)
+
+                    # all other attributes become None
+                    for f in fields(field.type):
+                        if f.name != "index":
+                            setattr(sub, f.name, None)
+
+                    kwargs[name] = sub
+
+            # Primitive field
+            else:
+                if field.type is int:
+                    kwargs[name] = int(value)
+                elif field.type is float:
+                    kwargs[name] = float(value)
+                else:
+                    kwargs[name] = value
+
+        return dataclass_type(**kwargs)
+
+
+    @classmethod
+    def _import_sheet(cls, sheet, dataclass_type):
+        rows = list(sheet.values)
+        if not rows:
+            return []
+
+        headers = rows[0]
+        objects = []
+
+        for row in rows[1:]:
+            if row is None or all(v is None for v in row):
+                continue
+
+            data = {headers[i]: row[i] for i in range(len(headers))}
+            obj = cls._from_excel_row(data, dataclass_type)
+            objects.append(obj)
+
+        return objects
+
+
+    @classmethod
+    def from_excel(cls, folder_path: str, excel_name: str, mapping: dict):
+        """
+        mapping = {
+            "Nodes": Nodes,      # collection class
+            "Offsets": Offsets,
+        }
+        """
+        from openpyxl import load_workbook
+        import os
+
+        filepath = os.path.join(folder_path, f"{excel_name}.xlsx")
+        if not os.path.exists(filepath):
+            raise FileNotFoundError(filepath)
+
+        wb = load_workbook(filepath, data_only=True)
+        collections = {}
+
+        # ---------------------------------------------------------
+        # 1) Import each sheet → build collections
+        # ---------------------------------------------------------
+        for sheet_name, collection_cls in mapping.items():
+
+            if sheet_name not in wb.sheetnames:
+                print(f"⚠ Sheet '{sheet_name}' not found in '{excel_name}.xlsx'")
+                continue
+
+            sheet = wb[sheet_name]
+            dataclass_type = collection_cls.item_type
+
+            objects = cls._import_sheet(sheet, dataclass_type)
+            collections[sheet_name] = collection_cls(objects=objects)
+
+        # ---------------------------------------------------------
+        # 2) Auto-resolve references across all collections
+        # ---------------------------------------------------------
+        cls._resolve_references(collections)
+
+        return collections
+
 class ObjectCollectionQuery(ABC, Generic[T, C]):
     
     @staticmethod

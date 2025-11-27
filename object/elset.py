@@ -4,10 +4,10 @@ from abc import ABC
 from typing import Tuple
 from typing import TypeVar, Type
 
-from SANSPRO.object.ObjectAbstract import Object
+from object._object_abstract import Object
 
-from SANSPRO.object.Section import SectionBase
-from SANSPRO.object.design import DesignBase
+from SANSPRO.object.section import SectionBase
+from SANSPRO.object.design import DesignConcreteBase
 from SANSPRO.object.material import MaterialBase
 
 # old
@@ -22,5 +22,5 @@ from SANSPRO.object.material import MaterialBase
 class Elset(Object):
     material: MaterialBase
     section: SectionBase
-    design: DesignBase
+    design: DesignConcreteBase
     texture: int

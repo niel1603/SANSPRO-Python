@@ -1,10 +1,16 @@
 import re
 from typing import Type, List, Dict, Tuple
 
-from SANSPRO.model.Model import Model
-from SANSPRO.object.Section import SectionBase, SectionThickness, SectionRect, SectionCircle
+from SANSPRO.model.model import Model
+from SANSPRO.object.section import (
+    SectionBase, 
+    SectionThickness, 
+    SectionRect, 
+    SectionCircle, 
+    SectionUser
+    )
 
-from SANSPRO.collection.CollectionAbstract import (
+from collection._collection_abstract import (
     Collection, 
     CollectionParser, 
     ObjectCollectionQuery, 
@@ -12,7 +18,7 @@ from SANSPRO.collection.CollectionAbstract import (
     ObjectCollectionAdapter, 
     CollectionComparer)
 
-from SANSPRO.variable.Parameter import ParameterParse, ParameterAdapter
+from SANSPRO.variable.parameter import ParameterParse, ParameterAdapter
 
 class Sections(Collection[SectionBase]):
     header = 'SECTION'
@@ -36,6 +42,8 @@ class SectionsParse(CollectionParser[Model, SectionBase, Sections]):
             return cls._parse_rect(parts, sub)
         elif section_type == "CIRCLE":
             return cls._parse_circle(parts, sub)
+        elif section_type == "USER":
+            return cls._parse_user(parts, sub)
         else:
             raise ValueError(f"Unsupported SECTION type: {section_type}")
 
@@ -114,6 +122,30 @@ class SectionsParse(CollectionParser[Model, SectionBase, Sections]):
             misc=misc,
             name=parts[9],
             diameter=float(sub.strip())
+        )
+    
+    @staticmethod
+    def _parse_user(parts: List[str], sub: str) -> SectionUser:
+        nums = [x for x in sub.split()]  # [b, ht, bf, tf]
+        ss, sa = nums
+        # store unknown variable
+        misc = (
+            int(parts[3]),
+            int(parts[4]),
+            int(parts[5]),
+            int(parts[6]),
+            float(parts[7]),
+            float(parts[8]),
+        )
+
+        return SectionUser(
+            index=int(parts[0]),
+            type_index=int(parts[1]),
+            type_name=parts[2],
+            misc=misc,
+            name=parts[9],
+            steel_sect=str(ss),
+            strong_axis=bool(int(sa))
         )
 
 class SectionsAdapter(ObjectCollectionAdapter[Model, SectionBase, Sections]):
@@ -218,7 +250,7 @@ class SectionsAdapter(ObjectCollectionAdapter[Model, SectionBase, Sections]):
         return line
 
 from collections import OrderedDict
-from SANSPRO.collection.section_properties import (
+from compact.elset.section_properties import (
     SectionPropertyConcreteSlab, 
     SectionPropertyConcreteBeam, 
     SectionPropertyConcreteBiaxialColumn, 

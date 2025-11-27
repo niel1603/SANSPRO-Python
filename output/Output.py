@@ -3,11 +3,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Union
 
-from SANSPRO.model.Model import ModelAdapter
-from SANSPRO.collection.Nodes import Nodes
-from SANSPRO.collection.Nodes import NodesParse
+from SANSPRO.model.model import ModelAdapter
+from SANSPRO.collection.nodes import Nodes
+from SANSPRO.collection.nodes import NodesParse
 
-from SANSPRO.output.SupportReactions import SupportReactions, SupportReactionsParser
+from output._support_reactions import SupportReactions, SupportReactionsParser
 
 
 

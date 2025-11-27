@@ -1,8 +1,8 @@
 import re
 from typing import ClassVar, Dict, List, Union, Tuple, Any
 from dataclasses import dataclass, fields, field
-from SANSPRO.model.Model import Block, Model, BlockAdapter
-from SANSPRO.variable.VariableAbstract import Variable, VariableParse, VariableAdapter
+from SANSPRO.model.model import Block, Model, BlockAdapter
+from variable._variable_abstract import Variable, VariableParse, VariableAdapter
 
 @dataclass
 class Loading(Variable):

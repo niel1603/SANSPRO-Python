@@ -2,14 +2,42 @@ import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-
-from SANSPRO.collection.section_properties import SectionPropertyAdapter
+from pathlib import Path
+from SANSPRO.compact.elset.section_properties import SectionPropertyAdapter
 from SANSPRO.collection.elsets import ElsetsAdapter, ElsetMerger
 
+# ==============================
+# SINGLE INPUT PATH
+# ==============================
+
+input_model = Path(
+    r"D:\COMPUTATIONAL\Model\SANSPRO\RUKO\A2\A2_v1_1.MDL"
+)
+folder_path = str(input_model.parent)
+file_name = input_model.stem
+increment_version = 0
+increment_sub_version = 0
+
+main_version = file_name.rsplit("_", 1)[0]
+model_name = main_version.rsplit("v", 1)[0]
+main_version = int(main_version.rsplit("v", 1)[1]) + increment_version
+sub_version = int(file_name.rsplit("_", 1)[1]) + increment_sub_version
+
+if increment_version != 0:
+    output_filename = f"{model_name}v{main_version}_0"
+else:
+    output_filename = f"{model_name}v{main_version}_{sub_version}"
+
+input_excel = f"{folder_path}\{file_name}.xlsx" 
+
+# ==============================
+# IMPORT FROM EXCEL
+# ==============================
 
 adapter = SectionPropertyAdapter()
 
-import_excel_path = r"D:\COMPUTATIONAL\Model\SANSPRO\ANANDA TERRACE\CLUBHOUSE\CLUB HOUSE_BALAI WARGA_POINT LOAD_CASE COMPLETE SIMPLIFIED_3_2.xlsx"
+import_excel_path = input_excel
+# import_excel_path = r"D:\COMPUTATIONAL\Model\SANSPRO\RUKO\A2\A2_v1_0.xlsx"
 
 imported_section_props = adapter.from_excel(import_excel_path)
 
@@ -19,22 +47,23 @@ imported_section_props = adapter.from_excel(import_excel_path)
  imported_designs,
  ) = ElsetsAdapter.from_section_properties(imported_section_props)
 
-from pathlib import Path
-from model.Model import ModelAdapter
-from SANSPRO.collection.Sections import SectionsParse
+from SANSPRO.model.model import ModelAdapter
+from SANSPRO.collection.sections import SectionsParse
 from SANSPRO.collection.designs import DesignsParse
 from SANSPRO.collection.materials import MaterialsParse
 from SANSPRO.collection.elsets import ElsetsParse
 
 # ==============================
-# MODEL
+# LOAD EXISTING MODEL FILE (.MDL)
 # ==============================
 
-full_path = Path(
-    r"D:\COMPUTATIONAL\Model\SANSPRO\ANANDA TERRACE\CLUBHOUSE\CLUB HOUSE_BALAI WARGA_POINT LOAD_CASE COMPLETE SIMPLIFIED_3_2.MDL"
-)
-folder_path = str(full_path.parent)
-model_name = full_path.stem
+existing_model_path = input_model
+# existing_model_path = Path(
+#     r"D:\COMPUTATIONAL\Model\SANSPRO\RUKO\A2\A2_v1_2.MDL"
+# )
+
+folder_path = str(existing_model_path.parent)
+model_name = existing_model_path.stem
 
 model_adapter = ModelAdapter(encoding='cp1252')
 model = model_adapter.from_text(folder_path, model_name)
@@ -48,10 +77,11 @@ existing_elsets = ElsetsParse.from_model(model,
                                          designs=existing_designs,
                                          )
 
-from SANSPRO.collection.Nodes import NodesParse
-from SANSPRO.collection.beams import BeamLayoutsParse
-from SANSPRO.collection.columns import ColumnLayoutsParse
-from SANSPRO.collection.floors import SlabsParse, RegionsParse
+from SANSPRO.collection.nodes import NodesParse
+from SANSPRO.layout.beam_layouts import BeamLayoutsParse
+from SANSPRO.layout.column_layouts import ColumnLayoutsParse
+from SANSPRO.collection.slabs import SlabsParse
+from SANSPRO.layout.regions import RegionsParse
 
 nodes = NodesParse.from_model(model)
 
@@ -68,7 +98,7 @@ slabs_used_elsets=slabs.get_used_elsets()
 used_elsets = beams_used_elsets | columns_used_elsets | slabs_used_elsets
 
 # ==============================
-# MERGE
+# IMPORT NEW ELSET INTO EXISTING MODEL
 # ==============================
 merger = ElsetMerger(existing_elsets, imported_elsets, used_elsets, existing_materials, imported_materials)
 
@@ -99,48 +129,25 @@ SlabsParse.remap_elsets(
 )
 
 # ==============================
-# TO MODEL
+# WRITE BACK MODEL FILE (OUTPUT .MDL)
 # ==============================
 from SANSPRO.collection.elsets import ElsetsAdapter
 from SANSPRO.collection.materials import MaterialsAdapter
-from SANSPRO.collection.Sections import SectionsAdapter
+from SANSPRO.collection.sections import SectionsAdapter
 from SANSPRO.collection.designs import DesignsAdapter
 
-from SANSPRO.collection.beams import BeamLayoutsAdapter
-from SANSPRO.collection.columns import ColumnLayoutsAdapter
-from SANSPRO.collection.floors import SlabsAdapter, RegionsAdapter
+from SANSPRO.layout.beam_layouts import BeamLayoutsAdapter
+from SANSPRO.layout.column_layouts import ColumnLayoutsAdapter
+from SANSPRO.collection.slabs import SlabsAdapter
+from SANSPRO.layout.regions import  RegionsAdapter
 
-# WRITEBACK
-# A. ELSET
 model = ElsetsAdapter.to_model(merged_elsets, model)
-
-# A.1. Material
-# mm_s = MaterialsAdapter.to_string(merged_materials)
 model = MaterialsAdapter.to_model(merged_materials, model)
-
-# A.2. Section 
-# ms_s = SectionsAdapter.to_string(merged_sections)
 model = SectionsAdapter.to_model(merged_sections, model)
-
-# A.3. Design
-# md_s = DesignsAdapter.to_string(merged_designs)
 model = DesignsAdapter.to_model(merged_designs, model)
-
-# B. LAYOUT
-
-# B.1. Laybeam
-# bl_s = BeamLayoutsAdapter.to_string(beam_layouts)
 model = BeamLayoutsAdapter.to_model(beam_layouts, model)
-
-# B.2. Laycol
-# cl_s = ColumnLayoutsAdapter.to_string(col_layouts)
 model = ColumnLayoutsAdapter.to_model(col_layouts, model)
-
-# B.3. Slab & Region
-# s_s = SlabsAdapter.to_string(slabs)
-# r_s = RegionsAdapter.to_string(regions)
 model = SlabsAdapter.to_model(slabs, model)
 model = RegionsAdapter.to_model(regions, model)
 
-output_model_name = f"{model_name}_ELSET"
-model_adapter.to_text(model= model, folder_path=folder_path, model_name=output_model_name)
+model_adapter.to_text(model= model, folder_path=folder_path, model_name=output_filename)

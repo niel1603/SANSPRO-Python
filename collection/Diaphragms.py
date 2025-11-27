@@ -1,9 +1,9 @@
 from typing import List, Optional, Type
 
-from SANSPRO.model.Model import Model
-from SANSPRO.collection.CollectionAbstract import Collection, CollectionParser, ObjectCollectionQuery, ObjectCollectionEngine, ObjectCollectionAdapter
+from SANSPRO.model.model import Model
+from collection._collection_abstract import Collection, CollectionParser, ObjectCollectionQuery, ObjectCollectionEngine, ObjectCollectionAdapter
 
-from SANSPRO.object.Diaphargm import Diaphragm
+from SANSPRO.object.diaphargm import Diaphragm
 
 class Diaphragms(Collection[Diaphragm]):
     header = 'MDIAPHTAB'
@@ -54,15 +54,30 @@ class DiaphragmsAdapter(ObjectCollectionAdapter[Model, Diaphragm, Diaphragms]):
 class DiaphragmsEngine(ObjectCollectionEngine[Diaphragm, Diaphragms]):
     
     @staticmethod
-    def extend(collection: Diaphragms, target_index: int) -> Diaphragms:
-        existing_indices = {d.index for d in collection.objects}
-        max_existing = max(existing_indices) if existing_indices else 0
+    def match_node_indices(collection: Diaphragms, node_indices: List[int]) -> Diaphragms:
+        """
+        Force diaphragm indices to match exactly the given node index list.
+        Missing ones are created. Extra ones are removed.
+        """
 
+        # Current diaphragms mapped by index
+        current_map = {d.index: d for d in collection.objects}
         new_objects = []
-        for i in range(max_existing + 1, target_index + 1):
-            tower_data = [f"TOWER 0 0 0 0"]
-            diaph_data = [f"DIAPH 0 0 0 0"]
-            new_objects.append(Diaphragm(index=i, tower_data=tower_data, diaph_data=diaph_data))
 
-        collection.extend(new_objects)
+        for idx in node_indices:
+            if idx in current_map:
+                # Keep existing, stable reference
+                new_objects.append(current_map[idx])
+            else:
+                # Create minimal diaphragm
+                new_objects.append(
+                    Diaphragm(
+                        index=idx,
+                        tower_data=["TOWER 0 0 0"],
+                        diaph_data=["DIAPH 0 0 0"],
+                    )
+                )
+
+        # Replace collection objects entirely
+        collection.objects = new_objects
         return collection

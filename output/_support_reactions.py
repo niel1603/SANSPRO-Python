@@ -4,10 +4,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Union
 
-from SANSPRO.object.Node import Node
-from SANSPRO.object.PointLoad import PointLoad
-from SANSPRO.collection.PointLoads import PointLoads
-from SANSPRO.collection.Nodes import Nodes
+from SANSPRO.object.node import Node
+from object.point_load import PointLoad
+from collection.point_loads import PointLoads
+from SANSPRO.collection.nodes import Nodes
 
 @dataclass
 class SupportReaction:

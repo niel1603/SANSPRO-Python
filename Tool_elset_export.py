@@ -4,24 +4,28 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from pathlib import Path
 
-from model.Model import ModelAdapter
-from collection.Sections import SectionsParse
-from collection.designs import DesignsParse
-from collection.materials import MaterialsParse
-from collection.elsets import ElsetsParse
+from SANSPRO.model.model import ModelAdapter
+from SANSPRO.collection.sections import SectionsParse
+from SANSPRO.collection.designs import DesignsParse
+from SANSPRO.collection.materials import MaterialsParse
+from SANSPRO.collection.elsets import ElsetsParse
+from SANSPRO.compact.elset.section_properties import SectionPropertyAdapter
+from SANSPRO.util.excel_export import export_multiple_collections_to_excel, strip_prefix_dict_keys
 
-from collection.section_properties import SectionPropertyAdapter
-
-from object.design import FunctionIndex, StructureType, DesignCode, ColumnRebarFace
-
-from util.excel_export import export_multiple_collections_to_excel, strip_prefix_dict_keys
+# ==============================
+# SINGLE INPUT PATH
+# ==============================
 
 full_path = Path(
-    r"D:\COMPUTATIONAL\Model\SANSPRO\ANANDA TERRACE\CLUBHOUSE\CLUB HOUSE_BALAI WARGA_POINT LOAD_CASE COMPLETE SIMPLIFIED_3_2.MDL"
+    r"D:\COMPUTATIONAL\Model\SANSPRO\RUKO\A2\A2_v1_1.MDL"
 )
 folder_path = str(full_path.parent)
 model_name = full_path.stem
 output_model_name = f"{model_name}"
+
+# ==============================
+# PARSE MODEL AND ELSET
+# ==============================
 
 # Create Model
 model_adapter = ModelAdapter(encoding='cp1252')
@@ -40,7 +44,10 @@ elsets = ElsetsParse.from_model(model,
 adapter = SectionPropertyAdapter(materials, sections, designs)
 section_properties = adapter.from_elsets(elsets)
 
-# Split by class
+# ==============================
+# EXPORT TO EXCEL
+# ==============================
+
 split = section_properties.split_by_class()
 
 collections = [

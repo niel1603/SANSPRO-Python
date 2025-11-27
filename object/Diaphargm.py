@@ -2,7 +2,7 @@ from typing import List
 
 from dataclasses import dataclass, field
 
-from SANSPRO.object.ObjectAbstract import Object
+from object._object_abstract import Object
 
 @dataclass
 class Diaphragm(Object):

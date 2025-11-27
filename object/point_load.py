@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
-from SANSPRO.object.ObjectAbstract import Object
-from SANSPRO.object.Node import Node
+from object._object_abstract import Object
+from SANSPRO.object.node import Node
 
 @dataclass
 class PointLoad(Object):

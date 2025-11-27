@@ -1,9 +1,9 @@
 from typing import List
 from dataclasses import dataclass, field
 
-from object.ObjectAbstract import Object
+from object._object_abstract import Object
 from object.elset import Elset
-from object.Node import Node
+from object.node import Node
 
 
 @dataclass

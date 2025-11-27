@@ -1,13 +1,13 @@
 from pathlib import Path
 
-from model.Model import ModelAdapter
-from output.Output import OutputAdapter
+from model.model import ModelAdapter
+from output.output import OutputAdapter
 
-from output.SupportReactions import SupportReactionsEngine
-from variable.Loading import LoadingParse, LoadingEngine, LoadingAdapter
+from output._support_reactions import SupportReactionsEngine
+from variable.loading import LoadingParse, LoadingEngine, LoadingAdapter
 
-from collection.Nodes import NodesParse, NodeQuery, NodesEngine, NodesAdapter
-from collection.PointLoads import PointLoadsParse, PointLoadsAdapter
+from collection.nodes import NodesParse, NodeQuery, NodesEngine, NodesAdapter
+from collection.point_loads import PointLoadsParse, PointLoadsAdapter
 
 
 from util.excel_export import export_multiple_collections_to_excel

@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from abc import ABC
 from typing import Tuple
 
-from SANSPRO.object.ObjectAbstract import Object
+from object._object_abstract import Object
 
 @dataclass
 class SectionBase(Object, ABC):
@@ -24,3 +24,8 @@ class SectionRect(SectionBase):
 @dataclass
 class SectionCircle(SectionBase):
     diameter: float #D
+
+@dataclass
+class SectionUser(SectionBase):
+    steel_sect: str
+    strong_axis: bool

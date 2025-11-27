@@ -1,13 +1,13 @@
 from pathlib import Path
 
-from model.Model import ModelAdapter
+from model.model import ModelAdapter
 
-from output.Output import OutputAdapter
-from output.SupportReactions import SupportReactionsEngine
+from output.output import OutputAdapter
+from output._support_reactions import SupportReactionsEngine
 
-from variable.Loading import LoadingParse, LoadingEngine, LoadingAdapter
+from variable.loading import LoadingParse, LoadingEngine, LoadingAdapter
 
-from collection.PointLoads import PointLoadsAdapter
+from collection.point_loads import PointLoadsAdapter
 
 # Step 1 Create new model with template load combination
 # -> Input full_path

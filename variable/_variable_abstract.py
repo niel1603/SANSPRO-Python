@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from dataclasses import fields
 from typing import Dict, TypeVar, Type, Generic
 
-from SANSPRO.model.Model import Block, Model, BlockAdapter
+from SANSPRO.model.model import Block, Model, BlockAdapter
 
 T = TypeVar("T", bound="Variable")
 

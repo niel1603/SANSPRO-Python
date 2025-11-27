@@ -1,5 +1,5 @@
-from model.Model import ModelAdapter
-from collection.Nodes import NodesParse, NodeQuery, NodesEngine, NodesAdapter
+from model.model import ModelAdapter
+from collection.nodes import NodesParse, NodeQuery, NodesEngine, NodesAdapter
 
 # Input
 # Number

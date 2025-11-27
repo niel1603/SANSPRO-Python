@@ -1,9 +1,9 @@
 from typing import List
 from dataclasses import dataclass, field
 
-from SANSPRO.object.ObjectAbstract import Object
+from object._object_abstract import Object
 from SANSPRO.object.elset import Elset
-from SANSPRO.object.Node import Node
+from SANSPRO.object.node import Node
 
 
 @dataclass

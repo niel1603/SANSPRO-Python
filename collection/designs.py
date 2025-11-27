@@ -2,13 +2,13 @@ import re
 from typing import Type, List, Dict, Optional
 from collections import OrderedDict
 
-from SANSPRO.model.Model import Model
+from SANSPRO.model.model import Model
 from SANSPRO.object.design import (
     FunctionIndex, 
     StructureType, 
     DesignCode,   
     StirrupType,
-    DesignBase,
+    DesignConcreteBase,
     ColumnRebarFace, 
     ReinforcedConcrete,
     DesignConcreteSlab, 
@@ -16,15 +16,22 @@ from SANSPRO.object.design import (
     DesignConcreteGirder, 
     DesignConcreteBiaxialColumn, 
     DesignConcreteCircularColumn,
+
+    )
+
+from SANSPRO.object.design import (
+    SectionOption,
+    CompositeOption,
+    SteelDesignBase,
     )
 
 from SANSPRO.object.material import MaterialBase, MaterialIsotropic
-from SANSPRO.object.design import DesignBase
+from SANSPRO.object.design import DesignConcreteBase
 
 from SANSPRO.collection.materials import Materials
-from SANSPRO.collection.Sections import Sections
+from SANSPRO.collection.sections import Sections
 
-from SANSPRO.collection.CollectionAbstract import (
+from collection._collection_abstract import (
     Collection, 
     CollectionParser, 
     ObjectCollectionQuery, 
@@ -32,7 +39,7 @@ from SANSPRO.collection.CollectionAbstract import (
     ObjectCollectionAdapter, 
     CollectionComparer)
 
-from SANSPRO.collection.section_properties import (
+from compact.elset.section_properties import (
     SectionPropertyBase,
     SectionPropertyConcreteSlab,
     SectionPropertyConcreteBeam, 
@@ -42,12 +49,12 @@ from SANSPRO.collection.section_properties import (
     )
 
 
-from SANSPRO.variable.Parameter import ParameterParse, ParameterAdapter
+from SANSPRO.variable.parameter import ParameterParse, ParameterAdapter
 
-class Designs(Collection[DesignBase]):
+class Designs(Collection[DesignConcreteBase]):
     header = 'DESIGN'
 
-class DesignsParse(CollectionParser[Model, DesignBase, Designs]):
+class DesignsParse(CollectionParser[Model, DesignConcreteBase, Designs]):
     LINES_PER_ITEM = 3
 
     @classmethod
@@ -55,7 +62,7 @@ class DesignsParse(CollectionParser[Model, DesignBase, Designs]):
         return Designs
 
     @classmethod
-    def parse_line(cls, lines: List[str], sections: Sections) -> DesignBase:
+    def parse_line(cls, lines: List[str], sections: Sections) -> DesignConcreteBase:
         tokens = [line.split() for line in lines]
         section_type = tokens[0][2].upper()
 
@@ -69,6 +76,8 @@ class DesignsParse(CollectionParser[Model, DesignBase, Designs]):
             return cls._parse_concrete_biaxial_column(tokens, sections)
         elif section_type == "CONCRETE_CCOL":
             return cls._parse_concrete_circular_column(tokens, sections)
+        elif section_type == "STEEL_FRAME":
+            return cls._parse_steel_frame(tokens, sections)
         else:
             # skip unknown section types
             print(f"[WARN] Skipping unsupported DESIGN type: {section_type}")
@@ -152,6 +161,61 @@ class DesignsParse(CollectionParser[Model, DesignBase, Designs]):
             reinforced_concrete=rc,
         )
         return base
+    
+    @staticmethod
+    def _parse_steel_base(tokens: List[List[str]], sections: Sections) -> Dict:
+        l0, l1, l2 = tokens
+
+        index = int(l0[0])
+        name = str(l0[3])
+
+        # --- 🔹 Use section name if available ---
+        if sections is not None:
+            section = sections.get(index)
+            if section is None:
+                print(f"[WARN] No matching Section index {index} for Design '{name}'")
+            else:
+                if section.name != name:
+                    print(f"[NOTICE] Design[{index}] name '{name}' replaced with Section name '{section.name}'")
+                name = section.name  # authoritative source
+
+        # --- Shared: Reinforced concrete material ---
+        base = dict(
+            index=index,
+            type_index=int(l0[1]),
+            type_name=str(l0[2]),
+            name=name,
+            function_index=FunctionIndex(int(l0[4])),
+            structure_type=StructureType(int(l0[5])),
+            design_code=DesignCode(int(l0[6])),
+            compute_k=bool(int(l0[7])),
+            show_detail=bool(int(l0[8])),
+            show_diagram=bool(int(l0[9])),
+            use_global_load_factor=bool(int(l0[10])),
+
+            phi_flexure=float(l1[0]),
+            phit_flex_tens=float(l1[1]),
+            phi_flex_comp=float(l1[2]),
+            phi_flex_comp_spiral=float(l1[3]),
+            phi_shear=float(l1[4]),
+            phi_torsion=float(l1[5]),
+            phi_bearing=float(l1[6]),
+            phi_connection=float(l1[7]),
+
+            k_x=float(l1[8]),
+            k_y=float(l1[9]),
+            l_u=float(l1[10]),
+            l_ux=float(l1[11]),
+            l_uy=float(l1[12]),
+
+            c_mx=float(l1[13]),
+            c_my=float(l1[14]),
+            cb=float(l1[15]),
+
+            gravity_load_reduction=float(l1[16]),
+            earthquake_load_reduction=float(l1[17]),
+        )
+        return base
 
     @staticmethod
     def _parse_concrete_slab(tokens: List[List[str]], sections: Sections) -> DesignConcreteSlab:
@@ -200,6 +264,48 @@ class DesignsParse(CollectionParser[Model, DesignBase, Designs]):
             d=float(l2[2]),
             cv=float(l2[6]),
         )
+    
+    @staticmethod
+    def _parse_steel_frame(tokens: List[List[str]], sections: Sections) -> SteelDesignBase:
+        l0, l1, l2 = tokens
+        base = DesignsParse._parse_steel_base(tokens, sections)
+        return SteelDesignBase(
+            **base,
+            section_option= SectionOption(int(l2[2])),
+            composite_option= CompositeOption(int(l2[3])),
+            connection_design= bool((int(l2[4]))),
+
+            section= str(l2[5]),
+            wf2= str(l2[6]),
+            strong_axis= bool(l2[7]),
+            h1_ho= int(l2[8]),
+            space= int(l2[9]),
+
+            Es= float(l2[10]),
+            Fu= float(l2[11]),
+            Fy= float(l2[12]),
+
+            Ag= float(l2[13]),
+            Rmin= float(l2[14]),
+            Wx= float(l2[15]),
+            Wy= float(l2[16]),
+            An_Ag= float(l2[17]),
+            material_name= str(l2[18]),
+
+            left_haunch_length= float(l2[19]),
+            left_haunch_height= float(l2[20]),
+
+            right_haunch_length= float(l2[21]),
+            right_haunch_height= float(l2[22]),
+
+            Tu= float(l2[23]),
+            Ty= float(l2[24]),
+
+            tension_only= bool(l2[25]),
+
+            Ry= float(l2[26]),
+            Rt= float(l2[27]),
+        )
     # ==========================================================
     # from_model — add validation with Sections
     # ==========================================================
@@ -207,7 +313,7 @@ class DesignsParse(CollectionParser[Model, DesignBase, Designs]):
     def from_model(cls, model: Model, sections:Sections) -> 'Designs':
         collection_cls = cls.get_collection()
         block = model.blocks.get(collection_cls.header)
-        parsed_items: list[DesignBase] = []
+        parsed_items: list[DesignConcreteBase] = []
 
         n = getattr(cls, "LINES_PER_ITEM", 1)
         lines = block.body
@@ -225,7 +331,7 @@ class DesignsParse(CollectionParser[Model, DesignBase, Designs]):
 
         return collection_cls(parsed_items)
 
-class DesignsAdapter(ObjectCollectionAdapter[Model, DesignBase, Designs]):
+class DesignsAdapter(ObjectCollectionAdapter[Model, DesignConcreteBase, Designs]):
 
     @classmethod
     def update_var(cls, designs: Designs, model: Model) -> Model:
@@ -237,7 +343,7 @@ class DesignsAdapter(ObjectCollectionAdapter[Model, DesignBase, Designs]):
         return model
 
     @classmethod
-    def format_line(cls, design: DesignBase) -> str:
+    def format_line(cls, design: DesignConcreteBase) -> str:
 
         if design.type_name == "CONCRETE_SLAB":
             return cls._format_line_slab(design)
@@ -254,7 +360,7 @@ class DesignsAdapter(ObjectCollectionAdapter[Model, DesignBase, Designs]):
             return None
     
     @classmethod
-    def _format_line_base(cls, d: DesignBase) -> str:
+    def _format_line_base(cls, d: DesignConcreteBase) -> str:
 
         i = int(d.index)
         t_i = int(d.type_index)
@@ -304,7 +410,7 @@ class DesignsAdapter(ObjectCollectionAdapter[Model, DesignBase, Designs]):
         return line1, line2, cv
 
     @classmethod
-    def _format_line_reinforced(cls, d: DesignBase, section_properties_line: str) -> str:
+    def _format_line_reinforced(cls, d: DesignConcreteBase, section_properties_line: str) -> str:
 
         rc = d.reinforced_concrete
 
@@ -417,7 +523,7 @@ class DesignFactory:
     Uses class-based type mapping (no reliance on section_property_type strings).
     """
 
-    TYPE_MAP: Dict[Type[SectionPropertyBase], Type[DesignBase]] = {
+    TYPE_MAP: Dict[Type[SectionPropertyBase], Type[DesignConcreteBase]] = {
         SectionPropertyConcreteSlab: DesignConcreteSlab,
         SectionPropertyConcreteWall: DesignConcreteWall,
         SectionPropertyConcreteBeam: DesignConcreteGirder,
@@ -425,7 +531,7 @@ class DesignFactory:
         SectionPropertyConcreteCircularColumn: DesignConcreteCircularColumn,
     }
 
-    FUNCTION_MAP: Dict[Type[DesignBase], FunctionIndex] = {
+    FUNCTION_MAP: Dict[Type[DesignConcreteBase], FunctionIndex] = {
         DesignConcreteSlab: FunctionIndex.SLAB,
         DesignConcreteWall: FunctionIndex.SHEAR_WALL,
         DesignConcreteGirder: FunctionIndex.BEAM,
@@ -450,7 +556,7 @@ class DesignFactory:
     # ============================================================
     # MAIN ENTRY
     # ============================================================
-    def create_design(self, design_key: tuple) -> DesignBase:
+    def create_design(self, design_key: tuple) -> DesignConcreteBase:
         if design_key not in self.design_map:
             raise KeyError(f"Design key {design_key} not found")
 
@@ -609,7 +715,7 @@ class DesignFactory:
     # HELPERS
     # ============================================================
 
-    def _infer_function_index(self, design_cls: Type[DesignBase]) -> FunctionIndex:
+    def _infer_function_index(self, design_cls: Type[DesignConcreteBase]) -> FunctionIndex:
         """
         Infer FunctionIndex from the design class using FUNCTION_MAP.
         """
@@ -733,12 +839,12 @@ class DesignFactory:
         """
         Build a full Designs collection from all entries in design_map.
         """
-        designs: list[DesignBase] = [
+        designs: list[DesignConcreteBase] = [
             self.create_design(key) for key in self.design_map.keys()
         ]
         return Designs(designs)
     
-class DesignsComparer(CollectionComparer["Model", DesignBase, "Designs"]):
+class DesignsComparer(CollectionComparer["Model", DesignConcreteBase, "Designs"]):
     """
     Specialized comparer for Design collections.
     Uses type_sort_rules both as:

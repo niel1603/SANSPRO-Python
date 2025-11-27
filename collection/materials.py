@@ -1,9 +1,9 @@
 import re
 from typing import Dict, Type, List, Tuple
 
-from SANSPRO.model.Model import Model
+from SANSPRO.model.model import Model
 from SANSPRO.object.material import MaterialBase, MaterialIsotropic, MaterialSpring
-from SANSPRO.collection.CollectionAbstract import (
+from collection._collection_abstract import (
     Collection, 
     CollectionParser, 
     ObjectCollectionQuery, 
@@ -11,7 +11,7 @@ from SANSPRO.collection.CollectionAbstract import (
     ObjectCollectionAdapter, 
     CollectionComparer)
 
-from SANSPRO.variable.Parameter import ParameterParse, ParameterAdapter
+from SANSPRO.variable.parameter import ParameterParse, ParameterAdapter
 
 class Materials(Collection[MaterialBase]):
     header = 'MATERIAL'

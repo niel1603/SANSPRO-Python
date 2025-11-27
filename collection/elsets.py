@@ -5,27 +5,27 @@ from types import SimpleNamespace
 from collections import OrderedDict
 from dataclasses import asdict, is_dataclass, replace
 
-from SANSPRO.model.Model import Model
+from SANSPRO.model.model import Model
 from SANSPRO.object.elset import Elset
-from SANSPRO.collection.CollectionAbstract import Collection, CollectionParser, ObjectCollectionQuery, ObjectCollectionEngine, ObjectCollectionAdapter
+from collection._collection_abstract import Collection, CollectionParser, ObjectCollectionQuery, ObjectCollectionEngine, ObjectCollectionAdapter
 
 from SANSPRO.object.material import MaterialBase
-from SANSPRO.object.Section import SectionBase
+from SANSPRO.object.section import SectionBase
 from SANSPRO.object.design import DesignBase
 
 from SANSPRO.collection.materials import Materials
-from SANSPRO.collection.Sections import Sections
+from SANSPRO.collection.sections import Sections
 from SANSPRO.collection.designs import Designs
 
 from SANSPRO.collection.materials import MaterialsFactory
-from SANSPRO.collection.Sections import SectionsFactory
+from SANSPRO.collection.sections import SectionsFactory
 from SANSPRO.collection.designs import DesignFactory
 
 from SANSPRO.collection.materials import MaterialsComparer
-from SANSPRO.collection.Sections import SectionsComparer
+from SANSPRO.collection.sections import SectionsComparer
 from SANSPRO.collection.designs import DesignsComparer
 
-from SANSPRO.variable.Parameter import ParameterParse, ParameterAdapter
+from SANSPRO.variable.parameter import ParameterParse, ParameterAdapter
 
 class Elsets(Collection[Elset]):
     header = 'ELSET'
@@ -135,7 +135,8 @@ class ElsetsParse(CollectionParser[Model, Elset, Elsets]):
         )
 
     
-from SANSPRO.collection.section_properties import (
+from compact.elset.section_properties import (
+    SectionProperties,
     SectionPropertyConcreteSlab, 
     SectionPropertyConcreteBeam, 
     SectionPropertyConcreteBiaxialColumn, 
@@ -147,7 +148,6 @@ from SANSPRO.object.material import (
     MaterialSpring
     )
 from SANSPRO.collection.elsets import Elsets
-from SANSPRO.collection.section_properties import SectionProperties
 
 class ElsetsAdapter(ObjectCollectionAdapter[Model, Elset, Elsets]):
 
@@ -568,7 +568,7 @@ class ElsetMerger:
         designs_cmp = DesignsComparer(existing_designs, imported_designs)
         merged_designs, reorder_design_map, _ = designs_cmp.merge_and_reorder(
             unique_attr="name",
-            remove_missing=False,
+            remove_missing=True,
             used_elsets=self.used_elsets,
         )
 

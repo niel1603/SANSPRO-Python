@@ -117,3 +117,88 @@ def import_multiple_collections_from_excel(
 def add_prefix_dict_keys(data: dict, prefix: str) -> dict:
     """Return a new dict with all keys prefixed."""
     return {f"{prefix}{k}": v for k, v in data.items()}
+
+# ================================================================
+# Convert imported lists → proper SANSPRO collections
+# ================================================================
+
+from collection._collection_abstract import Collection
+from typing import TypeVar, Type, List
+
+T = TypeVar("T")
+
+def import_collection_from_excel(filepath: str,
+                                 sheet_name: str,
+                                 cls: Type[T]) -> List[T]:
+    """
+    Read one sheet and convert each row into dataclass cls.
+    """
+    wb = load_workbook(filepath, data_only=True)
+
+    if sheet_name not in wb.sheetnames:
+        return []
+
+    ws = wb[sheet_name]
+    rows = list(ws.iter_rows(values_only=True))
+
+    if not rows:
+        return []
+
+    header = rows[0]
+    objects = []
+
+    for row in rows[1:]:
+        flat = {h: _coerce_value(v) for h, v in zip(header, row)}
+        nested = _expand_nested(flat)
+        obj = _dict_to_dataclass(cls, nested)
+        objects.append(obj)
+
+    return objects
+
+def import_multiple_collections_from_excel(
+        filepath: str,
+        sheet_map: Dict[str, Type]
+    ) -> Dict[str, List[object]]:
+    
+    results = {}
+    for sheet, cls in sheet_map.items():
+        results[sheet] = import_collection_from_excel(filepath, sheet, cls)
+    return results
+
+def build_collections_from_import(data: Dict[str, List[object]]) -> Dict[str, Collection]:
+    out = {}
+    for name, objects in data.items():
+        if not objects:
+            out[name] = None
+            continue
+
+        # infer collection type: Node → Nodes, Bar → Bars, etc.
+        obj_type = type(objects[0])
+        coll_type_name = obj_type.__name__ + "s"
+        coll_type = globals().get(coll_type_name)
+
+        if not coll_type:
+            raise RuntimeError(f"No collection class found for {obj_type}")
+
+        out[name] = coll_type(objects)
+
+    return out
+
+def import_sanspro_collections(
+    filepath: str,
+    sheet_map: Dict[str, Tuple[type, type]]
+):
+    raw = {}
+
+    # parse Excel → object lists
+    for sheet_name, (obj_cls, _) in sheet_map.items():
+        raw[sheet_name] = import_collection_from_excel(filepath, sheet_name, obj_cls)
+
+    # wrap result into collection classes
+    collections = {}
+
+    for sheet_name, (_, coll_cls) in sheet_map.items():
+        objects = raw[sheet_name]
+        collections[sheet_name] = coll_cls(objects)  # <── direct and explicit
+
+    return collections

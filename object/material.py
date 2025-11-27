@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from abc import ABC
 from typing import Tuple
 
-from SANSPRO.object.ObjectAbstract import Object
+from object._object_abstract import Object
 
 @dataclass
 class MaterialBase(Object, ABC):

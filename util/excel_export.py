@@ -1,39 +1,3 @@
-# from openpyxl import Workbook
-# import os
-# from typing import List, Tuple
-
-# def export_multiple_collections_to_excel(collections: List[Tuple[str, List[object]]],
-#                                          folder_path: str,
-#                                          excel_name: str):
-#     if not collections:
-#         raise ValueError("No collections provided")
-
-#     os.makedirs(folder_path, exist_ok=True)
-#     filepath = os.path.join(folder_path, f"{excel_name}.xlsx")
-
-#     wb = Workbook()
-#     wb.remove(wb.active)  # remove default sheet
-
-#     for sheet_name, objects in collections:
-#         if not objects:
-#             continue
-
-#         ws = wb.create_sheet(title=sheet_name)
-#         headers = list(vars(objects[0]).keys())
-#         ws.append(headers)
-
-#         for obj in objects:
-#             row = []
-#             for attr_name in headers:
-#                 attr = getattr(obj, attr_name)
-#                 if hasattr(attr, "index"):  # If it's an object with .index
-#                     row.append(getattr(attr, "index"))
-#                 else:
-#                     row.append(attr)
-#             ws.append(row)
-
-#     wb.save(filepath)
-
 import os
 from dataclasses import is_dataclass, asdict
 from enum import Enum
@@ -136,3 +100,36 @@ def strip_prefix_dict_keys(data: dict, prefix: str) -> dict:
         (k[plen:] if k.startswith(prefix) else k): v
         for k, v in data.items()
     }
+
+from dataclasses import fields
+
+# ============================================================
+# 1) FIXED RECURSIVE DATACLASS FLATTENER
+# ============================================================
+def flatten_dataclass(obj, parent_prefix=""):
+    out = {}
+
+    for f in fields(obj):
+        val = getattr(obj, f.name)
+        key = f"{parent_prefix}{f.name}"
+
+        # Case 1 — primitive
+        if isinstance(val, (int, float, str, bool)) or val is None:
+            out[key] = val
+            continue
+
+        # Case 2 — nested dataclass
+        if is_dataclass(val):
+            nested = flatten_dataclass(val, parent_prefix=f"{key}.")
+            out.update(nested)
+            continue
+
+        # Case 3 — list of dataclasses (Beam list)
+        if isinstance(val, list) and val and is_dataclass(val[0]):
+            out[key] = val  # handled separately
+            continue
+
+        # Fallback
+        out[key] = str(val)
+
+    return out

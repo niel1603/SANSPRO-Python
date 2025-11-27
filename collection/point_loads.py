@@ -1,11 +1,11 @@
 from typing import List, Optional, Type
 
-from SANSPRO.model.Model import Model
-from SANSPRO.collection.Nodes import Nodes, NodesParse
-from SANSPRO.object.PointLoad import PointLoad
-from SANSPRO.collection.CollectionAbstract import Collection, CollectionParser, ObjectCollectionQuery, ObjectCollectionEngine, ObjectCollectionAdapter
+from SANSPRO.model.model import Model
+from SANSPRO.collection.nodes import Nodes, NodesParse
+from object.point_load import PointLoad
+from collection._collection_abstract import Collection, CollectionParser, ObjectCollectionQuery, ObjectCollectionEngine, ObjectCollectionAdapter
 
-from variable.Parameter import ParameterParse, ParameterAdapter
+from variable.parameter import ParameterParse, ParameterAdapter
 
 class PointLoads(Collection[PointLoad]):
     header = 'JLOAD'

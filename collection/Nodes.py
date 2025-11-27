@@ -1,15 +1,23 @@
-from typing import List, Optional, Type
+from typing import List, Optional, Type, Tuple
 
-from SANSPRO.model.Model import Model
-from SANSPRO.object.Node import Node
-from SANSPRO.collection.CollectionAbstract import Collection, CollectionParser, ObjectCollectionQuery, ObjectCollectionEngine, ObjectCollectionAdapter
+from SANSPRO.model.model import Model
+from SANSPRO.object.node import Node
+from collection._collection_abstract import (
+    Collection, 
+    CollectionParser, 
+    ObjectCollectionQuery, 
+    ObjectCollectionEngine, 
+    ObjectCollectionAdapter
+    )
 
-from SANSPRO.variable.Building import BuildingParse, BuildingAdapter
-from SANSPRO.variable.Parameter import ParameterParse, ParameterAdapter
-from SANSPRO.collection.Diaphragms import DiaphragmsParse, DiaphragmsEngine, DiaphragmsAdapter
+from SANSPRO.variable.building import BuildingParse, BuildingAdapter
+from SANSPRO.variable.parameter import ParameterParse, ParameterAdapter
+from SANSPRO.variable.screen import ScreenParse, ScreenAdapter
+from SANSPRO.collection.diaphragms import DiaphragmsParse, DiaphragmsEngine, DiaphragmsAdapter
 
 class Nodes(Collection[Node]):
     header = 'NODEXY'
+    item_type = Node
         
 class NodesParse(CollectionParser[Model, Node, Nodes]):
     LINES_PER_ITEM = 1
@@ -46,8 +54,18 @@ class NodesAdapter(ObjectCollectionAdapter[Model, Node, Nodes]):
         parameter.node_2d = len(nodes.objects)
         model = ParameterAdapter.to_model(parameter, model)
 
+        bounds = NodeQuery.get_bounds(nodes)
+        screen = ScreenParse.from_mdl(model)
+        margin = 250
+        screen.building_floor_xmin = bounds[0] - margin
+        screen.building_floor_xmax = bounds[1] + margin
+        screen.building_floor_ymin = bounds[2] - margin
+        screen.building_floor_ymax = bounds[3] + margin
+        model = ScreenAdapter.to_model(screen, model)
+
         diaphragms = DiaphragmsParse.from_model(model)
-        diaphragms = DiaphragmsEngine.extend(diaphragms, len(nodes.objects))
+        node_indices = nodes.index_list()
+        diaphragms = DiaphragmsEngine.match_node_indices(diaphragms, node_indices)
         model = DiaphragmsAdapter.to_model(diaphragms, model)
 
         return model
@@ -60,6 +78,17 @@ class NodesAdapter(ObjectCollectionAdapter[Model, Node, Nodes]):
         return f"   {node.index}  {x_str} {y_str}  {z_str}   "
 
 class NodeQuery(ObjectCollectionQuery[Node, Nodes]):
+
+    @staticmethod
+    def get_bounds(collection: Nodes) -> Tuple[float, float, float, float]:
+        if not collection.objects:
+            return (None, None, None, None)
+
+        xs = [n.x for n in collection.objects]
+        ys = [n.y for n in collection.objects]
+
+        return (min(xs), max(xs), min(ys), max(ys))
+    
     @staticmethod
     def get_by_indices(collection: Nodes, indices: List[int]) -> Nodes:
         selected_nodes = [collection.index(i) for i in indices if collection.index(i) is not None]

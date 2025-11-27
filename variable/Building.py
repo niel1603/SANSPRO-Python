@@ -1,7 +1,7 @@
 from typing import ClassVar, Dict
 from dataclasses import dataclass
 
-from SANSPRO.variable.VariableAbstract import Variable, VariableParse, VariableAdapter
+from variable._variable_abstract import Variable, VariableParse, VariableAdapter
 
 @dataclass
 class Building(Variable):
