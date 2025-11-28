@@ -4,7 +4,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from pathlib import Path
 
-from model.model import ModelAdapter
+from SANSPRO.model.model import ModelAdapter
 from SANSPRO.collection.nodes import NodesParse
 from SANSPRO.collection.offsets import OffsetsParse
 from SANSPRO.collection.stories import StoriesParse
@@ -21,11 +21,11 @@ from SANSPRO.collection._collection_abstract import ObjectCollectionAdapter
 from SANSPRO.compact.layout.beam_layout_compact import CompactBeamLayouts
 from SANSPRO.compact.layout.column_layout_compact import CompactColumnLayouts
 
-full_path = Path(
-    r"D:\COMPUTATIONAL\Model\SANSPRO\MTJ\RF1_v2_0\RF1_v2_1.MDL"
+existing_model_path = Path(
+    r"D:\COMPUTATIONAL\Model\SANSPRO\KAVLING CARSON\KAVLING CARSON_v1_1.MDL"
 )
-folder_path = str(full_path.parent)
-model_name = full_path.stem
+folder_path = str(existing_model_path.parent)
+model_name = existing_model_path.stem
 
 model_adapter = ModelAdapter(encoding='cp1252')
 model = model_adapter.from_text(folder_path, model_name)
