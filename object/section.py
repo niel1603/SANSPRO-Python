@@ -22,6 +22,13 @@ class SectionRect(SectionBase):
     slab_thick: float #tf
 
 @dataclass
+class SectionTee(SectionBase):
+    width: float #b
+    height: float #ht
+    thick_web: float #tw
+    thick_flange: float #tf
+
+@dataclass
 class SectionCircle(SectionBase):
     diameter: float #D
 

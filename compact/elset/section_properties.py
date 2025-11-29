@@ -10,7 +10,9 @@ from compact.elset.section_property import (
     SectionPropertyConcreteWall,
     SectionPropertyConcreteBeam,
     SectionPropertyConcreteBiaxialColumn,
+    SectionPropertyConcreteTeeColumn,
     SectionPropertyConcreteCircularColumn,
+    SectionPropertySteelFrame
 )
 
 class SectionProperties(Collection["SectionPropertyBase"]):
@@ -46,8 +48,10 @@ class SectionPropertyAdapter:
         ("ISOTROPIC", "THICKNESS", "CONCRETE_SLAB"): SectionPropertyConcreteSlab,
         ("ISOTROPIC", "RECT", "CONCRETE_GIRDER"): SectionPropertyConcreteBeam,
         ("ISOTROPIC", "RECT", "CONCRETE_BCOL"): SectionPropertyConcreteBiaxialColumn,
+        ("ISOTROPIC", "TEE", "CONCRETE_TCOL"): SectionPropertyConcreteTeeColumn,
         ("ISOTROPIC", "CIRCLE", "CONCRETE_CCOL"): SectionPropertyConcreteCircularColumn,
         ("ISOTROPIC", "THICKNESS", "CONCRETE_WALL"): SectionPropertyConcreteWall,
+        ("ISOTROPIC", "USER", "STEEL_FRAME"): SectionPropertySteelFrame,
     }
 
     # ------------------------------------------------------
@@ -108,7 +112,6 @@ class SectionPropertyAdapter:
         """
         Load section property data directly from Excel into SectionProperties.
         """
-
         from util.excel_import import import_multiple_collections_from_excel, add_prefix_dict_keys
 
         # Read Excel
@@ -119,17 +122,39 @@ class SectionPropertyAdapter:
                 "ConcreteWall": SectionPropertyConcreteWall,
                 "ConcreteBeam": SectionPropertyConcreteBeam,
                 "ConcreteBiaxialColumn": SectionPropertyConcreteBiaxialColumn,
+                "ConcreteTeeColumn": SectionPropertyConcreteTeeColumn,
                 "ConcreteCircularColumn": SectionPropertyConcreteCircularColumn,
+                "SteelFrame": SectionPropertySteelFrame,
             },
         )
 
-        # Prefix for consistent naming
+        # Prefix keys
         section_dict = add_prefix_dict_keys(data, "SectionProperty")
 
-        # Merge into one SectionProperties collection
+        # Merge into one flat list
         all_props = []
         for subset in section_dict.values():
             if isinstance(subset, list):
                 all_props.extend(subset)
 
-        return SectionProperties(all_props)
+        # ----------------------------------------------------------------------
+        # Detect and warn about duplicated section names
+        # ----------------------------------------------------------------------
+        seen = set()
+        unique_props = []
+        duplicates = []
+
+        for sp in all_props:
+            if sp.name in seen:
+                duplicates.append(sp.name)
+            else:
+                seen.add(sp.name)
+                unique_props.append(sp)
+
+        if duplicates:
+            print(f"[WARNING] Duplicated section properties detected (kept first occurrence):")
+            for name in duplicates:
+                print(f"  - {name}")
+
+        # Return filtered SectionProperties
+        return SectionProperties(unique_props)

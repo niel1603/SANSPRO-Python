@@ -150,6 +150,13 @@ class DesignConcreteBiaxialColumn(DesignConcreteBase):
     tf: float
 
 @dataclass
+class DesignConcreteTeeColumn(DesignConcreteBase):
+    b: float
+    h: float
+    bf: float
+    tf: float
+
+@dataclass
 class DesignConcreteCircularColumn(DesignConcreteBase):
     d: float
 
@@ -201,4 +208,3 @@ class SteelDesignBase(DesignBase, ABC):
 
     Ry: float
     Rt: float
-

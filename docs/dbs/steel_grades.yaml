@@ -1,0 +1,29 @@
+ST37:
+  function: STRUCT
+  seismic: true
+  fu: 3700
+  fy: 2400
+  fv: 1440
+  ry: 1.5
+  rt: 1.2
+  notes: "INDO, General Structures and Buildings"
+
+ST41:
+  function: STRUCT
+  seismic: true
+  fu: 4100
+  fy: 2665
+  fv: 1599
+  ry: 1.5
+  rt: 1.2
+  notes: "INDO, General Structures and Buildings"
+
+SS400:
+  function: STRUCT
+  seismic: true
+  fu: 4079
+  fy: 2396
+  fv: 1438
+  ry: 1.5
+  rt: 1.2
+  notes: "JIS, General Structures and Buildings"

@@ -11,12 +11,12 @@ from SANSPRO.collection.elsets import ElsetsAdapter, ElsetMerger
 # ==============================
 
 input_model = Path(
-    r"D:\COMPUTATIONAL\Model\SANSPRO\RUKO\A2\A2_v1_1.MDL"
+    r"D:\COMPUTATIONAL\Model\SANSPRO\RUKO\TIPE 1\TIPE 1_v1_3.MDL"
 )
 folder_path = str(input_model.parent)
 file_name = input_model.stem
 increment_version = 0
-increment_sub_version = 0
+increment_sub_version = 1
 
 main_version = file_name.rsplit("_", 1)[0]
 model_name = main_version.rsplit("v", 1)[0]
@@ -37,7 +37,6 @@ input_excel = f"{folder_path}\{file_name}.xlsx"
 adapter = SectionPropertyAdapter()
 
 import_excel_path = input_excel
-# import_excel_path = r"D:\COMPUTATIONAL\Model\SANSPRO\RUKO\A2\A2_v1_0.xlsx"
 
 imported_section_props = adapter.from_excel(import_excel_path)
 

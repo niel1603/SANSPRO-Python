@@ -10,8 +10,12 @@ from SANSPRO.object.design import (
     DesignConcreteSlab, 
     DesignConcreteWall, 
     DesignConcreteGirder, 
-    DesignConcreteBiaxialColumn, 
+    DesignConcreteBiaxialColumn,
+    DesignConcreteTeeColumn, 
     DesignConcreteCircularColumn
+    )
+from SANSPRO.object.design import (
+    SteelDesignBase
     )
 from SANSPRO.object.elset import Elset
 
@@ -34,7 +38,6 @@ class SectionPropertyReinforcedConcrete:
 class SectionPropertyBase(Object, ABC):
     name: str
     material: str
-    rc: SectionPropertyReinforcedConcrete
 
     @classmethod
     @abstractmethod
@@ -46,6 +49,13 @@ class SectionPropertyBase(Object, ABC):
         """
         pass
 
+@dataclass
+class SectionPropertyConcrete(SectionPropertyBase):
+    rc: SectionPropertyReinforcedConcrete
+
+@dataclass
+class SectionPropertySteel(SectionPropertyBase):
+    material_design: str
 
 # ==========================================================
 # TRANSLATOR
@@ -54,7 +64,7 @@ class SectionPropertyBase(Object, ABC):
 # Concrete Slab
 
 @dataclass
-class SectionPropertyConcreteSlab(SectionPropertyBase):
+class SectionPropertyConcreteSlab(SectionPropertyConcrete):
 
     @classmethod
     def from_section(
@@ -75,7 +85,7 @@ class SectionPropertyConcreteSlab(SectionPropertyBase):
 # Concrete Wall
 
 @dataclass
-class SectionPropertyConcreteWall(SectionPropertyBase):
+class SectionPropertyConcreteWall(SectionPropertyConcrete):
 
     @classmethod
     def from_section(
@@ -96,7 +106,7 @@ class SectionPropertyConcreteWall(SectionPropertyBase):
 # Concrete Rectangular Beam
 
 @dataclass
-class SectionPropertyConcreteBeam(SectionPropertyBase):
+class SectionPropertyConcreteBeam(SectionPropertyConcrete):
 
     @classmethod
     def from_section(
@@ -117,7 +127,7 @@ class SectionPropertyConcreteBeam(SectionPropertyBase):
 # Concrete Rectangular Biaxial Column
 
 @dataclass
-class SectionPropertyConcreteBiaxialColumn(SectionPropertyBase):
+class SectionPropertyConcreteBiaxialColumn(SectionPropertyConcrete):
 
     @classmethod
     def from_section(
@@ -135,10 +145,31 @@ class SectionPropertyConcreteBiaxialColumn(SectionPropertyBase):
             rc=SectionPropertyReinforcedConcrete.from_design(design),
         )
     
+# Concrete Tee or L Column
+
+@dataclass
+class SectionPropertyConcreteTeeColumn(SectionPropertyConcrete):
+
+    @classmethod
+    def from_section(
+        cls,
+        elset: Elset,
+        material: MaterialIsotropic,
+        section: SectionRect,
+        design: DesignConcreteTeeColumn,
+    ) -> "SectionPropertyConcreteTeeColumn":
+        
+        return cls(
+            index=elset.index,
+            name=section.name,
+            material=material.name,
+            rc=SectionPropertyReinforcedConcrete.from_design(design),
+        )
+    
 # Concrete Cicular Column
 
 @dataclass
-class SectionPropertyConcreteCircularColumn(SectionPropertyBase):
+class SectionPropertyConcreteCircularColumn(SectionPropertyConcrete):
 
     @classmethod
     def from_section(
@@ -154,4 +185,25 @@ class SectionPropertyConcreteCircularColumn(SectionPropertyBase):
             name=section.name,
             material=material.name,
             rc=SectionPropertyReinforcedConcrete.from_design(design),
+        )
+    
+# Steel Frame
+
+@dataclass
+class SectionPropertySteelFrame(SectionPropertySteel):
+
+    @classmethod
+    def from_section(
+        cls,
+        elset: Elset,
+        material: MaterialIsotropic,
+        section: SectionCircle,
+        design: SteelDesignBase,
+    ) -> "SectionPropertySteelFrame":
+        
+        return cls(
+            index=elset.index,
+            name=section.name,
+            material=material.name,
+            material_design=design.material_name,
         )

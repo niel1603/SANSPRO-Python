@@ -5,7 +5,8 @@ from SANSPRO.model.model import Model
 from SANSPRO.object.section import (
     SectionBase, 
     SectionThickness, 
-    SectionRect, 
+    SectionRect,
+    SectionTee, 
     SectionCircle, 
     SectionUser
     )
@@ -40,6 +41,8 @@ class SectionsParse(CollectionParser[Model, SectionBase, Sections]):
             return cls._parse_thickness(parts, sub)
         elif section_type == "RECT":
             return cls._parse_rect(parts, sub)
+        elif section_type == "TEE":
+            return cls._parse_tee(parts, sub)
         elif section_type == "CIRCLE":
             return cls._parse_circle(parts, sub)
         elif section_type == "USER":
@@ -101,6 +104,32 @@ class SectionsParse(CollectionParser[Model, SectionBase, Sections]):
             width=b,          # single width field
             height=ht,
             slab_thick=tf
+        )
+    
+    @staticmethod
+    def _parse_tee(parts: List[str], sub: str) -> "SectionTee":
+        nums = [float(x) for x in sub.split()]
+        b, ht, tw, tf = nums
+
+        misc = (
+            int(parts[3]),
+            int(parts[4]),
+            int(parts[5]),
+            int(parts[6]),
+            float(parts[7]),
+            float(parts[8]),
+        )
+
+        return SectionTee(
+            index=int(parts[0]),
+            type_index=int(parts[1]),
+            type_name=parts[2],
+            misc=misc,
+            name=parts[9],
+            width=b,
+            height=ht,
+            thick_web=tw,
+            thick_flange=tf
         )
     
     @staticmethod
@@ -166,8 +195,12 @@ class SectionsAdapter(ObjectCollectionAdapter[Model, SectionBase, Sections]):
             return cls._format_line_thickness(sections)
         elif sections.type_name == "RECT":
             return cls._format_line_rect(sections)
+        elif sections.type_name == "TEE":
+            return cls._format_line_tee(sections)
         elif sections.type_name == "CIRCLE":
             return cls._format_line_circle(sections)
+        elif sections.type_name == "USER":
+            return cls._format_line_user(sections)
         else:
             print(f"[WARN] Skipping unsupported SECTION type: {sections.type_name}")
             return None
@@ -225,6 +258,34 @@ class SectionsAdapter(ObjectCollectionAdapter[Model, SectionBase, Sections]):
         return line
     
     @classmethod
+    def _format_line_tee(cls, s: SectionTee) -> str:
+
+        i = int(s.index)
+        t_i = int(s.type_index)
+        t_n = str(s.type_name)
+
+        m_0, m_1, m_2, m_3, m_4, m_5 = s.misc
+        m_0 = int(m_0)
+        m_1 = int(m_1)
+        m_2 = int(m_2)
+        m_3 = int(m_3)
+        m_4 = float(m_4)
+        m_4 = float(m_5)
+
+        n = str(s.name)
+
+        w = cls._norm_float(s.width)
+        h = cls._norm_float(s.height)
+        t_w = cls._norm_float(s.thick_web)
+        t_f = cls._norm_float(s.thick_flange)
+
+        line1 = f'{i:>4}{t_i:>4} {t_n:<12} {m_0} {m_1} {m_2} {m_3}{m_4:>8.2f}{m_5:>8.2f} {n}'
+        line2 = f'      {w} {h} {t_w} {t_f}'
+
+        line = f'{line1}\n{line2}'
+        return line
+    
+    @classmethod
     def _format_line_circle(cls, s: SectionCircle) -> str:
 
         i = int(s.index)
@@ -248,14 +309,41 @@ class SectionsAdapter(ObjectCollectionAdapter[Model, SectionBase, Sections]):
 
         line = f'{line1}\n{line2}'
         return line
+    
+    @classmethod
+    def _format_line_user(cls, s: SectionUser) -> str:
+
+        i = int(s.index)
+        t_i = int(s.type_index)
+        t_n = str(s.type_name)
+
+        m_0, m_1, m_2, m_3, m_4, m_5 = s.misc
+        m_0 = int(m_0)
+        m_1 = int(m_1)
+        m_2 = int(m_2)
+        m_3 = int(m_3)
+        m_4 = float(m_4)
+        m_4 = float(m_5)
+
+        n = str(s.name)
+
+        sa = int(s.strong_axis)
+
+        line1 = f'{i:>4}{t_i:>4} {t_n:<12} {m_0} {m_1} {m_2} {m_3}{m_4:>8.2f}{m_5:>8.2f} {n}'
+        line2 = f'     {n} {sa}'
+
+        line = f'{line1}\n{line2}'
+        return line
 
 from collections import OrderedDict
 from compact.elset.section_properties import (
     SectionPropertyConcreteSlab, 
     SectionPropertyConcreteBeam, 
     SectionPropertyConcreteBiaxialColumn, 
+    SectionPropertyConcreteTeeColumn, 
     SectionPropertyConcreteCircularColumn,
     SectionPropertyConcreteWall, 
+    SectionPropertySteelFrame,
     )
 
 class SectionsFactory:
@@ -272,7 +360,9 @@ class SectionsFactory:
         SectionPropertyConcreteWall: "THICKNESS",
         SectionPropertyConcreteBeam: "RECT",
         SectionPropertyConcreteBiaxialColumn: "RECT",
+        SectionPropertyConcreteTeeColumn: "TEE",
         SectionPropertyConcreteCircularColumn: "CIRCLE",
+        SectionPropertySteelFrame: "USER",
     }
 
     def __init__(self, section_map: "OrderedDict[tuple[str, str], int]", section_props: Dict[int, object]):
@@ -306,8 +396,12 @@ class SectionsFactory:
             return self._create_thickness(section_prop, index, name)
         elif type_name == "RECT":
             return self._create_rect(section_prop, index, name)
+        elif type_name == "TEE":
+            return self._create_tee(section_prop, index, name)
         elif type_name == "CIRCLE":
             return self._create_circle(section_prop, index, name)
+        elif type_name == "USER":
+            return self._create_user(section_prop, index, name)
         else:
             raise ValueError(f"Unsupported mapped section type: {type_name}")
 
@@ -342,6 +436,25 @@ class SectionsFactory:
             height=height,
             slab_thick=0,
         )
+    
+    def _create_tee(self, prop, index: int, name: str) -> SectionTee:
+        # prefix must be B or C
+        
+        prefix, values, suffix = self._split_tee(name)
+
+        width, height, thick_web, thick_flange = values
+
+        return SectionTee(
+            index=index,
+            type_index=12,
+            type_name="TEE",
+            misc=(0, 0, 0, 0, 0.00, 0.00),
+            name=name,
+            width=width,
+            height=height,
+            thick_web=thick_web,
+            thick_flange=thick_flange,
+        )
 
     def _create_circle(self, prop, index: int, name: str) -> SectionCircle:
         
@@ -354,6 +467,18 @@ class SectionsFactory:
             misc=(0, 0, 0, 0, 0.0, 0.0),
             name=name,
             diameter=diameter,
+        )
+    
+    def _create_user(self, prop, index: int, name: str) -> SectionCircle:
+
+        return SectionUser(
+            index=index,
+            type_index=12,
+            type_name="USER",
+            misc=(0, 0, 0, 0, 0.0, 0.0),
+            name=name,
+            steel_sect=name,
+            strong_axis=True
         )
 
     # ============================================================
@@ -417,6 +542,50 @@ class SectionsFactory:
 
         prefix, num1, sep, num2, suffix = m.groups()
         return prefix, float(num1), float(num2), suffix
+    
+    def _split_tee(self, name: str):
+        """
+        Parse strings like:
+            T30X40X15X25
+            T30x30x15x15
+            T200/300/50/75A
+            C100_200_300B
+
+        Returns:
+            prefix: str
+            values: list[float]
+            suffix: str
+
+        Rules:
+        - prefix = leading letters
+        - suffix = trailing letters
+        - middle = 2+ numeric tokens separated by [xX×/:\-_]
+        """
+        if not isinstance(name, str):
+            raise TypeError(f"Expected string, got {type(name)}")
+
+        m = re.match(
+            r"""
+            ^([A-Za-z]+)            # prefix letters
+            (                       # start numeric block
+                \d+\.?\d*           # first number
+                (?:[xX×/:\-_]\d+\.?\d*)+   # 1+ (sep + number)
+            )
+            ([A-Za-z]*)$            # optional suffix
+            """,
+            name,
+            flags=re.VERBOSE,
+        )
+
+        if not m:
+            raise ValueError(f"Invalid multi-dimension pattern: '{name}'")
+
+        prefix, numblock, suffix = m.groups()
+
+        # split by any separator
+        values = [float(v) for v in re.split(r"[xX×/:\-_]", numblock)]
+
+        return prefix, values, suffix
     
 class SectionsComparer(CollectionComparer[Model, SectionBase, Sections]):
     """

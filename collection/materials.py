@@ -182,100 +182,225 @@ class MaterialsAdapter(ObjectCollectionAdapter[Model, MaterialBase, Materials]):
         line = f'{line1}\n{line2}'
         return line
     
+# class MaterialsFactory:
+#     """
+#     Factory that builds default Material instances from a material_map (name -> index).
+#     """
+#     def __init__(self, material_map: Dict[str, int]):
+#         self.name_to_index = material_map
+
+#     def create_material(self, name: str) -> MaterialBase:
+#         """
+#         Create a Material instance from its name using the material_map.
+#         """
+#         if name not in self.name_to_index:
+#             raise KeyError(f"Material name '{name}' not found in material_map")
+
+#         index = self.name_to_index[name]
+#         type_name = self._infer_type_from_name(name)
+
+#         if type_name == "ISOTROPIC":
+
+#             _, fc1 = self._split_isotropic(name)
+
+#             fc1_kgcm = fc1 * 10 # conver MPa to kg/cm2
+
+#             # Empirical elastic modulus
+#             elastic_mod = ( 4700 * (fc1 ** 0.5) )
+#             elastic_mod_kgcm = elastic_mod * 1/9.81 * 100 # conver MPa to kg/cm2
+#             elastic_mod_kgcm = round(elastic_mod_kgcm, 1)
+
+#             poisson_ratio = 0.2
+#             shear_mod = elastic_mod_kgcm / (2 * (1 + poisson_ratio))
+#             shear_mod = round(shear_mod, 1)
+
+#             return MaterialIsotropic(
+#                 index=index,
+#                 type_index=1,
+#                 type_name=type_name,
+#                 name=name,
+#                 misc1=(0, 0, 0, 0),
+
+#                 fc1=fc1_kgcm,
+#                 time_dependent=False,
+#                 alpha=0.0,
+#                 beta=0.0,
+#                 misc2=0,
+
+#                 thermal_coeficient=1e-05,
+#                 unit_weight=0.0024,
+#                 elastic_mod=elastic_mod_kgcm,
+#                 shear_mod=shear_mod,
+#                 poisson_ratio=poisson_ratio,
+#             )
+
+#         elif type_name == "SPRING":
+#             spring_stiff = float(name.split("-")[-1])
+
+#             return MaterialSpring(
+#                 index=index,
+#                 type_index=3,
+#                 type_name=type_name,
+#                 name=name,
+#                 misc1=(0, 0, 0, 0),
+
+#                 misc2=0,
+#                 spring_stiff=spring_stiff,
+#                 spring_min=0.0,
+#                 spring_max=0.0,
+#             )
+
+#         else:
+#             raise ValueError(f"Unsupported material type: {type_name}")
+
+#     @staticmethod
+#     def _infer_type_from_name(name: str) -> str:
+#         name = name.lower()
+#         if name.startswith("spr "):
+#             return "SPRING"
+#         if name.startswith("fc"):
+#             return "ISOTROPIC"
+#         if name.startswith("steel"):
+#             return "ISOTROPIC"
+#         raise KeyError(f"Cannot infer type from name '{name}'")
+    
+#     @staticmethod
+#     def _split_isotropic(name: str):
+#         m = re.match(r"^([A-Za-z]+)(\d+\.?\d*)$", name)
+#         if not m:
+#             raise ValueError(f"Invalid format for prefix+value: '{name}'")
+#         prefix, num = m.groups()
+#         return prefix, float(num)
+
+#     def create_all(self) -> "Materials":
+#         """
+#         Create a Materials collection from all entries in the name→index map.
+#         """
+#         materials = [self.create_material(name) for name in self.name_to_index.keys()]
+#         return Materials(materials)
+
 class MaterialsFactory:
     """
-    Factory that builds default Material instances from a material_map (name -> index).
+    Factory that builds Material instances from a material_map (name -> index).
     """
+
     def __init__(self, material_map: Dict[str, int]):
         self.name_to_index = material_map
 
+        # Simple dispatch without class explosion
+        self._builders = {
+            "CONCRETE": self._build_concrete,
+            "SPRING": self._build_spring,
+            "STEEL": self._build_steel,
+        }
+
+    # ----------------------------------------------------------------------
+    # PUBLIC API
+    # ----------------------------------------------------------------------
     def create_material(self, name: str) -> MaterialBase:
-        """
-        Create a Material instance from its name using the material_map.
-        """
         if name not in self.name_to_index:
-            raise KeyError(f"Material name '{name}' not found in material_map")
+            raise KeyError(f"Material '{name}' not found in material_map")
 
         index = self.name_to_index[name]
-        type_name = self._infer_type_from_name(name)
+        mat_type = self._infer_type(name)
 
-        if type_name == "ISOTROPIC":
+        builder = self._builders.get(mat_type)
+        if builder is None:
+            raise ValueError(f"No builder for material type '{mat_type}'")
 
-            _, fc1 = self._split_isotropic(name)
+        return builder(index, name)
 
-            fc1_kgcm = fc1 * 10 # conver MPa to kg/cm2
+    def create_all(self) -> "Materials":
+        return Materials([self.create_material(name) for name in self.name_to_index])
 
-            # Empirical elastic modulus
-            elastic_mod = ( 4700 * (fc1 ** 0.5) )
-            elastic_mod_kgcm = elastic_mod * 1/9.81 * 100 # conver MPa to kg/cm2
-            elastic_mod_kgcm = round(elastic_mod_kgcm, 1)
-
-            poisson_ratio = 0.2
-            shear_mod = elastic_mod_kgcm / (2 * (1 + poisson_ratio))
-            shear_mod = round(shear_mod, 1)
-
-            return MaterialIsotropic(
-                index=index,
-                type_index=1,
-                type_name=type_name,
-                name=name,
-                misc1=(0, 0, 0, 0),
-
-                fc1=fc1_kgcm,
-                time_dependent=False,
-                alpha=0.0,
-                beta=0.0,
-                misc2=0,
-
-                thermal_coeficient=1e-05,
-                unit_weight=0.0024,
-                elastic_mod=elastic_mod_kgcm,
-                shear_mod=shear_mod,
-                poisson_ratio=poisson_ratio,
-            )
-
-        elif type_name == "SPRING":
-            spring_stiff = float(name.split("-")[-1])
-
-            return MaterialSpring(
-                index=index,
-                type_index=3,
-                type_name=type_name,
-                name=name,
-                misc1=(0, 0, 0, 0),
-
-                misc2=0,
-                spring_stiff=spring_stiff,
-                spring_min=0.0,
-                spring_max=0.0,
-            )
-
-        else:
-            raise ValueError(f"Unsupported material type: {type_name}")
-
+    # ----------------------------------------------------------------------
+    # TYPE INFERENCE (very clear now)
+    # ----------------------------------------------------------------------
     @staticmethod
-    def _infer_type_from_name(name: str) -> str:
-        name = name.lower()
-        if name.startswith("spr "):
-            return "SPRING"
-        if name.startswith("fc"):
-            return "ISOTROPIC"
-        raise KeyError(f"Cannot infer type from name '{name}'")
-    
+    def _infer_type(name: str) -> str:
+        lname = name.lower()
+
+        if lname.startswith("spr"):  return "SPRING"
+        if lname.startswith("fc"):   return "CONCRETE"
+        if lname.startswith("steel"):return "STEEL"
+
+        raise ValueError(f"Cannot infer material type from '{name}'")
+
+    # ----------------------------------------------------------------------
+    # BUILDERS (simple, contained, readable)
+    # ----------------------------------------------------------------------
+    def _build_concrete(self, index: int, name: str) -> MaterialBase:
+        prefix, fc = self._split_isotropic(name)
+
+        fc_kg = fc * 10
+        elastic_mod = (4700 * (fc ** 0.5)) * (1/9.81) * 100
+        elastic_mod = round(elastic_mod, 1)
+
+        poisson = 0.2
+        shear_mod = round(elastic_mod / (2 * (1 + poisson)), 1)
+
+        return MaterialIsotropic(
+            index=index,
+            type_index=1,
+            type_name="ISOTROPIC",
+            name=name,
+            misc1=(0,0,0,0),
+            fc1=fc_kg,
+            time_dependent=False,
+            alpha=0.0,
+            beta=0.0,
+            misc2=0,
+            thermal_coeficient=1e-05,
+            unit_weight=0.0024,
+            elastic_mod=elastic_mod,
+            shear_mod=shear_mod,
+            poisson_ratio=poisson,
+        )
+
+    def _build_spring(self, index: int, name: str) -> MaterialBase:
+        stiff = float(name.split("-")[-1])
+        return MaterialSpring(
+            index=index,
+            type_index=3,
+            type_name="SPRING",
+            name=name,
+            misc1=(0,0,0,0),
+            misc2=0,
+            spring_stiff=stiff,
+            spring_min=0.0,
+            spring_max=0.0,
+        )
+
+    def _build_steel(self, index: int, name: str) -> MaterialBase:
+
+        return MaterialIsotropic(
+            index=index,
+            type_index=1,
+            type_name="ISOTROPIC",
+            name=name,
+            misc1=(0,0,0,0),
+            fc1=0,
+            time_dependent=False,
+            alpha=0.0,
+            beta=0.0,
+            misc2=0,
+            thermal_coeficient=1.17E-005,
+            unit_weight=0.00785,
+            elastic_mod=2100000,
+            shear_mod=840000,
+            poisson_ratio=0.25,
+        )
+
+    # ----------------------------------------------------------------------
+    # HELPERS
+    # ----------------------------------------------------------------------
     @staticmethod
     def _split_isotropic(name: str):
         m = re.match(r"^([A-Za-z]+)(\d+\.?\d*)$", name)
         if not m:
-            raise ValueError(f"Invalid format for prefix+value: '{name}'")
-        prefix, num = m.groups()
-        return prefix, float(num)
+            raise ValueError(f"Invalid isotropic material format: '{name}'")
+        return m.group(1), float(m.group(2))
 
-    def create_all(self) -> "Materials":
-        """
-        Create a Materials collection from all entries in the name→index map.
-        """
-        materials = [self.create_material(name) for name in self.name_to_index.keys()]
-        return Materials(materials)
     
 class MaterialsComparer(CollectionComparer[Model, MaterialBase, Materials]):
     """

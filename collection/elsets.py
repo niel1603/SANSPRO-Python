@@ -139,9 +139,13 @@ from compact.elset.section_properties import (
     SectionProperties,
     SectionPropertyConcreteSlab, 
     SectionPropertyConcreteBeam, 
-    SectionPropertyConcreteBiaxialColumn, 
+    SectionPropertyConcreteBiaxialColumn,
+    SectionPropertyConcreteTeeColumn, 
     SectionPropertyConcreteCircularColumn,
     SectionPropertyConcreteWall, 
+    )
+from compact.elset.section_properties import (
+    SectionPropertySteelFrame 
     )
 from SANSPRO.object.material import (
     MaterialIsotropic,
@@ -230,36 +234,81 @@ class ElsetsAdapter(ObjectCollectionAdapter[Model, Elset, Elsets]):
     # ======================================================
     # STAGE 1 — MAP BUILDING
     # ======================================================
+    
     @classmethod
     def _build_index_maps(cls, section_props):
+
         type_order = [
             SectionPropertyConcreteSlab,
             SectionPropertyConcreteBeam,
             SectionPropertyConcreteBiaxialColumn,
+            SectionPropertyConcreteTeeColumn,
             SectionPropertyConcreteCircularColumn,
             SectionPropertyConcreteWall,
+            SectionPropertySteelFrame,
         ]
 
-        ordered = sorted(section_props.objects, key=lambda sp: type_order.index(type(sp)))
+        # sort by class order
+        ordered = sorted(
+            section_props.objects,
+            key=lambda sp: type_order.index(type(sp)),
+        )
 
         material_map = OrderedDict()
         section_map  = OrderedDict()
         design_map   = OrderedDict()
 
         for sp in ordered:
+            # MATERIAL KEY
             mkey = sp.material
-            skey = (sp.section_property_type, sp.name)
 
-            if hasattr(sp, "rc") and sp.rc:
-                dkey = (sp.section_property_type, sp.name, cls._key(sp.rc))
+            # SECTION KEY (class + name)
+            skey = (type(sp), sp.name)
+
+            # DESIGN KEY (class + name [+ rc signature])
+            if hasattr(sp, "rc") and sp.rc is not None:
+                dkey = (type(sp), sp.name, cls._key(sp.rc))
             else:
-                dkey = (sp.section_property_type, sp.name)
+                dkey = (type(sp), sp.name)
 
             cls._next_id(material_map, mkey)
-            cls._next_id(section_map, skey)
-            cls._next_id(design_map, dkey)
+            cls._next_id(section_map,  skey)
+            cls._next_id(design_map,   dkey)
 
         return type_order, material_map, section_map, design_map
+    
+    # @classmethod
+    # def _build_index_maps(cls, section_props):
+    #     type_order = [
+    #         SectionPropertyConcreteSlab,
+    #         SectionPropertyConcreteBeam,
+    #         SectionPropertyConcreteBiaxialColumn,
+    #         SectionPropertyConcreteTeeColumn,
+    #         SectionPropertyConcreteCircularColumn,
+    #         SectionPropertyConcreteWall,
+    #         SectionPropertySteelFrame,
+    #     ]
+
+    #     ordered = sorted(section_props.objects, key=lambda sp: type_order.index(type(sp)))
+
+    #     material_map = OrderedDict()
+    #     section_map  = OrderedDict()
+    #     design_map   = OrderedDict()
+
+    #     for sp in ordered:
+    #         mkey = sp.material
+    #         skey = (sp.section_property_type, sp.name)
+
+    #         if hasattr(sp, "rc") and sp.rc:
+    #             dkey = (sp.section_property_type, sp.name, cls._key(sp.rc))
+    #         else:
+    #             dkey = (sp.section_property_type, sp.name)
+
+    #         cls._next_id(material_map, mkey)
+    #         cls._next_id(section_map, skey)
+    #         cls._next_id(design_map, dkey)
+
+    #     return type_order, material_map, section_map, design_map
 
     # ======================================================
     # STAGE 2 — NORMALIZATION
@@ -377,47 +426,6 @@ class ElsetsAdapter(ObjectCollectionAdapter[Model, Elset, Elsets]):
 
         # fallback
         return repr(obj)
-
-    @classmethod
-    def _build_index_maps(cls, section_props):
-
-        type_order = [
-            SectionPropertyConcreteSlab,
-            SectionPropertyConcreteBeam,
-            SectionPropertyConcreteBiaxialColumn,
-            SectionPropertyConcreteCircularColumn,
-            SectionPropertyConcreteWall,
-        ]
-
-        # sort by class order
-        ordered = sorted(
-            section_props.objects,
-            key=lambda sp: type_order.index(type(sp)),
-        )
-
-        material_map = OrderedDict()
-        section_map  = OrderedDict()
-        design_map   = OrderedDict()
-
-        for sp in ordered:
-            # MATERIAL KEY
-            mkey = sp.material
-
-            # SECTION KEY (class + name)
-            skey = (type(sp), sp.name)
-
-            # DESIGN KEY (class + name [+ rc signature])
-            if hasattr(sp, "rc") and sp.rc is not None:
-                dkey = (type(sp), sp.name, cls._key(sp.rc))
-            else:
-                dkey = (type(sp), sp.name)
-
-            cls._next_id(material_map, mkey)
-            cls._next_id(section_map,  skey)
-            cls._next_id(design_map,   dkey)
-
-        return type_order, material_map, section_map, design_map
-
     
     @staticmethod
     def _reorder_material_map(material_map, materials=None):
@@ -445,16 +453,31 @@ class ElsetsAdapter(ObjectCollectionAdapter[Model, Elset, Elsets]):
                 type_lookup[mat.index] = type(mat)  # old index → class
 
         def _split_mkey(mkey: str):
+            """
+            Returns (prefix, numeric or None).
+            Accepts:
+                FC35     -> ('FC', 35.0)
+                Steel    -> ('Steel', None)
+            """
+            # 1. Try prefixed-number format (FC35, Steel400, etc.)
             m = re.match(r"^([A-Za-z]+)(\d+\.?\d*)$", mkey)
-            if not m:
-                raise ValueError(f"Invalid format for prefix+value: '{mkey}'")
-            prefix, num = m.groups()
-            return prefix, float(num)
+            if m:
+                prefix, num = m.groups()
+                return prefix, float(num)
+
+            # 2. Try pure prefix without number (Steel, Concrete, Timber)
+            m = re.match(r"^([A-Za-z]+)$", mkey)
+            if m:
+                prefix = m.group(1)
+                return prefix, None
+
+            raise ValueError(f"Invalid format for prefix/value: '{mkey}'")
+
 
         def _sort_key(mkey):
             old_idx = material_map[mkey]
 
-            # sort by type
+            # 1. rank by material type
             if materials is not None:
                 cls = type_lookup.get(old_idx)
                 if cls in MATERIAL_TYPE_ORDER:
@@ -464,10 +487,16 @@ class ElsetsAdapter(ObjectCollectionAdapter[Model, Elset, Elsets]):
             else:
                 type_rank = 0
 
-            # numeric sort inside same type
-            strength = _split_mkey(mkey)
+            # 2. numeric sort inside same type
+            prefix, num = _split_mkey(mkey)
 
-            return (type_rank, strength)
+            # rule:
+            #   Number exists      → sort by number
+            #   No number present  → sort after numbered items (use inf)
+            numeric_rank = float("inf") if num is None else num
+
+            return (type_rank, numeric_rank, prefix.lower())
+
 
         # ======================================================
         # 1) Sort keys by (type_rank, numeric_strength)

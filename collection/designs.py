@@ -8,25 +8,25 @@ from SANSPRO.object.design import (
     StructureType, 
     DesignCode,   
     StirrupType,
+    DesignBase,
     DesignConcreteBase,
     ColumnRebarFace, 
     ReinforcedConcrete,
     DesignConcreteSlab, 
     DesignConcreteWall, 
     DesignConcreteGirder, 
-    DesignConcreteBiaxialColumn, 
+    DesignConcreteBiaxialColumn,
+    DesignConcreteTeeColumn, 
     DesignConcreteCircularColumn,
-
+    SteelDesignBase,
     )
 
 from SANSPRO.object.design import (
     SectionOption,
     CompositeOption,
-    SteelDesignBase,
     )
 
 from SANSPRO.object.material import MaterialBase, MaterialIsotropic
-from SANSPRO.object.design import DesignConcreteBase
 
 from SANSPRO.collection.materials import Materials
 from SANSPRO.collection.sections import Sections
@@ -43,13 +43,17 @@ from compact.elset.section_properties import (
     SectionPropertyBase,
     SectionPropertyConcreteSlab,
     SectionPropertyConcreteBeam, 
-    SectionPropertyConcreteBiaxialColumn, 
+    SectionPropertyConcreteBiaxialColumn,
+    SectionPropertyConcreteTeeColumn, 
     SectionPropertyConcreteCircularColumn,
     SectionPropertyConcreteWall, 
+    SectionPropertySteelFrame
     )
 
 
 from SANSPRO.variable.parameter import ParameterParse, ParameterAdapter
+from compact.elset.record.steel_grade import SteelGrade
+from compact.elset.record.steel_section import SteelSection
 
 class Designs(Collection[DesignConcreteBase]):
     header = 'DESIGN'
@@ -73,6 +77,8 @@ class DesignsParse(CollectionParser[Model, DesignConcreteBase, Designs]):
         elif section_type == "CONCRETE_GIRDER":
             return cls._parse_concrete_girder(tokens, sections)
         elif section_type == "CONCRETE_BCOL":
+            return cls._parse_concrete_biaxial_column(tokens, sections)
+        elif section_type == "CONCRETE_TCOL":
             return cls._parse_concrete_biaxial_column(tokens, sections)
         elif section_type == "CONCRETE_CCOL":
             return cls._parse_concrete_circular_column(tokens, sections)
@@ -254,6 +260,19 @@ class DesignsParse(CollectionParser[Model, DesignConcreteBase, Designs]):
             tf=float(l2[5]),
             cv=float(l2[6]),
         )
+    
+    @staticmethod
+    def _parse_concrete_tee_column(tokens: List[List[str]], sections: Sections) -> DesignConcreteTeeColumn:
+        l0, l1, l2 = tokens
+        base = DesignsParse._parse_concrete_base(tokens, sections)
+        return DesignConcreteTeeColumn(
+            **base,
+            b=float(l2[2]),
+            h=float(l2[3]),
+            bf=float(l2[4]),
+            tf=float(l2[5]),
+            cv=float(l2[6]),
+        )
 
     @staticmethod
     def _parse_concrete_circular_column(tokens: List[List[str]], sections: Sections) -> DesignConcreteCircularColumn:
@@ -343,7 +362,7 @@ class DesignsAdapter(ObjectCollectionAdapter[Model, DesignConcreteBase, Designs]
         return model
 
     @classmethod
-    def format_line(cls, design: DesignConcreteBase) -> str:
+    def format_line(cls, design: DesignBase) -> str:
 
         if design.type_name == "CONCRETE_SLAB":
             return cls._format_line_slab(design)
@@ -353,14 +372,18 @@ class DesignsAdapter(ObjectCollectionAdapter[Model, DesignConcreteBase, Designs]
             return cls._format_line_girder(design)
         elif design.type_name == "CONCRETE_BCOL":
             return cls._format_line_bcol(design)
+        elif design.type_name == "CONCRETE_TCOL":
+            return cls._format_line_tcol(design)
         elif design.type_name == "CONCRETE_CCOL":
             return cls._format_line_ccol(design)
+        elif design.type_name == "STEEL_FRAME":
+            return cls._format_line_steel_frame(design)
         else:
             print(f"[WARN] Skipping unsupported DESIGN type: {design.type_name}")
             return None
     
     @classmethod
-    def _format_line_base(cls, d: DesignConcreteBase) -> str:
+    def _format_line_base(cls, d: DesignBase) -> str:
 
         i = int(d.index)
         t_i = int(d.type_index)
@@ -402,12 +425,10 @@ class DesignsAdapter(ObjectCollectionAdapter[Model, DesignConcreteBase, Designs]
         g_lr = cls._norm_float(d.gravity_load_reduction)
         e_lr = cls._norm_float(d.earthquake_load_reduction)
 
-        cv   = cls._norm_float(d.cv)
-
         line1 = f'{i:>4}{t_i:>4} {t_n:<12} {n} {f_i} {s_t} {d_c} {c_k} {s_de} {s_di} {u_g}'
         line2 = f'      {p_f} {p_tf} {p_fc} {p_fcs} {p_sh} {p_tr} {p_br} {p_cn}   {k_x} {k_y} {l_u} {l_ux} {l_uy}   {c_mx} {c_my} {cb} {g_lr} {e_lr}'
 
-        return line1, line2, cv
+        return line1, line2
 
     @classmethod
     def _format_line_reinforced(cls, d: DesignConcreteBase, section_properties_line: str) -> str:
@@ -448,11 +469,52 @@ class DesignsAdapter(ObjectCollectionAdapter[Model, DesignConcreteBase, Designs]
 
         line3 = f'      CONCRETE = {sp_l}  {ec} {fc1} {fci} {fcr}  {fy} {db} {dlt} {crf}  {fys} {dbs} {nside} {sb_s}  {st_tp} {fyv} {dbv} {st_sm}  {hllw} {tcc} {tcf}'
         return line3
+    
+    @classmethod
+    def _format_line_steel(cls, d: SteelDesignBase) -> str:
+        so  = int(d.section_option)
+        co  = int(d.composite_option)
+        cd  = int(d.connection_design)
+
+        sec = d.section
+        wf2 = d.wf2
+        sa  = int(d.strong_axis)
+        h1  = cls._norm_float(d.h1_ho)
+        spc = cls._norm_float(d.space)
+
+        Es  = cls._norm_float(d.Es)
+        Fu  = cls._norm_float(d.Fu)
+        Fy  = cls._norm_float(d.Fy)
+
+        Ag  = cls._norm_float(d.Ag)
+        Rm  = cls._norm_float(d.Rmin)
+        Wx  = cls._norm_float(d.Wx)
+        Wy  = cls._norm_float(d.Wy)
+        Aa  = cls._norm_float(d.An_Ag)
+        mnm = d.material_name
+
+        LHL = cls._norm_float(d.left_haunch_length)
+        LHH = cls._norm_float(d.left_haunch_height)
+
+        RHL = cls._norm_float(d.right_haunch_length)
+        RHH = cls._norm_float(d.right_haunch_height)
+
+        Tu  = cls._norm_float(d.Tu)
+        Ty  = cls._norm_float(d.Ty)
+
+        to  = int(d.tension_only)
+
+        Ry  = cls._norm_float(d.Ry)
+        Rt  = cls._norm_float(d.Rt)
+
+        line3 = f'      STEELDSG   = {so} {co} {cd} {sec} {wf2} {sa} {h1} {spc}  {Es} {Fu} {Fy}  {Ag} {Rm} {Wx} {Wy} {Aa}  {mnm} {LHL} {LHH} {RHL} {RHH} {Tu} {Ty} {to} {Ry} {Rt}'
+        return line3
 
     @classmethod
     def _format_line_slab(cls, d: DesignConcreteSlab) -> str:
-        line1, line2, cv = cls._format_line_base(d)
+        line1, line2 = cls._format_line_base(d)
 
+        cv   = cls._norm_float(d.cv)
         tp = cls._norm_float(d.tp)
         section_properties_line = f'{tp} 0 0 0 {cv}'
         
@@ -463,8 +525,9 @@ class DesignsAdapter(ObjectCollectionAdapter[Model, DesignConcreteBase, Designs]
     
     @classmethod
     def _format_line_wall(cls, d: DesignConcreteWall) -> str:
-        line1, line2, cv = cls._format_line_base(d)
+        line1, line2 = cls._format_line_base(d)
 
+        cv   = cls._norm_float(d.cv)
         tp = cls._norm_float(d.tp)
         section_properties_line = f'{tp} 0 0 0 {cv}'
         
@@ -475,8 +538,9 @@ class DesignsAdapter(ObjectCollectionAdapter[Model, DesignConcreteBase, Designs]
     
     @classmethod
     def _format_line_girder(cls, d: DesignConcreteGirder) -> str:
-        line1, line2, cv = cls._format_line_base(d)
+        line1, line2 = cls._format_line_base(d)
 
+        cv   = cls._norm_float(d.cv)
         bw = cls._norm_float(d.bw)
         ht = cls._norm_float(d.ht)
         bf = cls._norm_float(d.bf)
@@ -491,8 +555,26 @@ class DesignsAdapter(ObjectCollectionAdapter[Model, DesignConcreteBase, Designs]
     
     @classmethod
     def _format_line_bcol(cls, d: DesignConcreteBiaxialColumn) -> str:
-        line1, line2, cv = cls._format_line_base(d)
+        line1, line2 = cls._format_line_base(d)
 
+        cv   = cls._norm_float(d.cv)
+        b = cls._norm_float(d.b)
+        h = cls._norm_float(d.h)
+        bf = cls._norm_float(d.bf)
+        tf = cls._norm_float(d.tf)
+        
+        section_properties_line = f'{b} {h} {bf} {tf} {cv}'
+        
+        line3 = cls._format_line_reinforced(d, section_properties_line)
+        line = f'{line1}\n{line2}\n{line3}'
+
+        return line
+    
+    @classmethod
+    def _format_line_tcol(cls, d: DesignConcreteTeeColumn) -> str:
+        line1, line2 = cls._format_line_base(d)
+
+        cv   = cls._norm_float(d.cv)
         b = cls._norm_float(d.b)
         h = cls._norm_float(d.h)
         bf = cls._norm_float(d.bf)
@@ -507,12 +589,22 @@ class DesignsAdapter(ObjectCollectionAdapter[Model, DesignConcreteBase, Designs]
     
     @classmethod
     def _format_line_ccol(cls, d: DesignConcreteCircularColumn) -> str:
-        line1, line2, cv = cls._format_line_base(d)
+        line1, line2 = cls._format_line_base(d)
 
+        cv   = cls._norm_float(d.cv)
         dia = cls._norm_float(d.d)
         section_properties_line = f'{dia} 0 0 0 {cv}'
         
         line3 = cls._format_line_reinforced(d, section_properties_line)
+        line = f'{line1}\n{line2}\n{line3}'
+
+        return line
+    
+    @classmethod
+    def _format_line_steel_frame(cls, d: SteelDesignBase) -> str:
+        line1, line2 = cls._format_line_base(d)
+       
+        line3 = cls._format_line_steel(d)
         line = f'{line1}\n{line2}\n{line3}'
 
         return line
@@ -528,7 +620,9 @@ class DesignFactory:
         SectionPropertyConcreteWall: DesignConcreteWall,
         SectionPropertyConcreteBeam: DesignConcreteGirder,
         SectionPropertyConcreteBiaxialColumn: DesignConcreteBiaxialColumn,
+        SectionPropertyConcreteTeeColumn: DesignConcreteTeeColumn,
         SectionPropertyConcreteCircularColumn: DesignConcreteCircularColumn,
+        SectionPropertySteelFrame: SteelDesignBase,
     }
 
     FUNCTION_MAP: Dict[Type[DesignConcreteBase], FunctionIndex] = {
@@ -536,7 +630,9 @@ class DesignFactory:
         DesignConcreteWall: FunctionIndex.SHEAR_WALL,
         DesignConcreteGirder: FunctionIndex.BEAM,
         DesignConcreteBiaxialColumn: FunctionIndex.COLUMN,
+        DesignConcreteTeeColumn: FunctionIndex.COLUMN,
         DesignConcreteCircularColumn: FunctionIndex.COLUMN,
+        SteelDesignBase: FunctionIndex.COLUMN,
     }
 
     def __init__(
@@ -576,7 +672,7 @@ class DesignFactory:
         
         # build RC
 
-        base = dict(
+        concrete_base = dict(
             index=index,
             name=name,
             function_index=fn,
@@ -617,17 +713,59 @@ class DesignFactory:
             
         )
 
+        steel_base = dict(
+            index=index,
+            type_index=3,
+            type_name="STEEL_FRAME",
+            name=name,
+
+            function_index=fn,
+            structure_type=StructureType.DUCTILE,
+            design_code=DesignCode.STEEL_SNI_2019_LRFD,
+
+            # booleans
+            compute_k=True,
+            show_detail=True,
+            show_diagram=True,
+            use_global_load_factor=False,
+
+            # phi factors
+            phi_flexure=0.9,
+            phit_flex_tens=0.75,
+            phi_flex_comp=0.85,
+            phi_flex_comp_spiral=0.85,
+            phi_shear=0.75,
+            phi_torsion=0.75,
+            phi_bearing=0.9,
+            phi_connection=0.8,
+
+            # k and length factors
+            k_x=1.0,
+            k_y=1.0,
+            l_u=1.0,
+            l_ux=1.0,
+            l_uy=1.0,
+
+            # moment magnification
+            c_mx=1.0,
+            c_my=1.0,
+            cb=1.0,
+
+            # load reduction
+            gravity_load_reduction=1.0,
+            earthquake_load_reduction=1.0,
+            
+        )
+
         # ---------- type-specific ----------
         if design_cls is DesignConcreteSlab:
-
-            name = section_prop.name
 
             thickness = section.thickness
             
             rc = self._build_reinforced_concrete(section_prop=section_prop, material=material)
 
             return DesignConcreteSlab(
-                **base,
+                **concrete_base,
                 type_index=8,
                 type_name="CONCRETE_SLAB",
                 tp=thickness,
@@ -636,13 +774,11 @@ class DesignFactory:
             )
 
         if design_cls is DesignConcreteWall:
-
-            name = section_prop.name
-            
+          
             rc = self._build_reinforced_concrete(section_prop=section_prop, material=material)
             
             return DesignConcreteWall(
-                **base,
+                **concrete_base,
                 type_index=9,
                 type_name="CONCRETE_WALL",
                 tp=thickness,
@@ -652,15 +788,13 @@ class DesignFactory:
 
         if design_cls is DesignConcreteGirder:
 
-            name = section_prop.name
-
             width=section.width
             height=section.height
             
             rc = self._build_reinforced_concrete(section_prop=section_prop, material=material, depth=height)
             
             return DesignConcreteGirder(
-                **base,
+                **concrete_base,
                 type_index=4,
                 type_name="CONCRETE_GIRDER",
                 bw=width,
@@ -673,15 +807,13 @@ class DesignFactory:
 
         if design_cls is DesignConcreteBiaxialColumn:
 
-            name = section_prop.name
-
             width=section.width
             height=section.height
             
             rc = self._build_reinforced_concrete(section_prop=section_prop, material=material)
             
             return DesignConcreteBiaxialColumn(
-                **base,
+                **concrete_base,
                 type_index=7,
                 type_name="CONCRETE_BCOL",
                 b=width,
@@ -691,24 +823,95 @@ class DesignFactory:
                 cv=section_prop.rc.cover,
                 reinforced_concrete=rc,
             )
+        
+        if design_cls is DesignConcreteTeeColumn:
+
+            width=section.width
+            height=section.height
+            thick_web=section.thick_web
+            thick_flange=section.thick_flange
+            
+            rc = self._build_reinforced_concrete(section_prop=section_prop, material=material)
+            
+            return DesignConcreteTeeColumn(
+                **concrete_base,
+                type_index=11,
+                type_name="CONCRETE_TCOL",
+                b=thick_web,
+                h=height,
+                bf=width,
+                tf=thick_flange,
+                cv=section_prop.rc.cover,
+                reinforced_concrete=rc,
+            )
 
         if design_cls is DesignConcreteCircularColumn:
-            
-            name = section_prop.name
-
-            diameter = section.diameter
-            
+                       
             rc = self._build_reinforced_concrete(section_prop=section_prop, material=material)
         
             return DesignConcreteCircularColumn(
-                **base,
+                **concrete_base,
                 type_index=5,
                 type_name="CONCRETE_CCOL",
                 d=section.diameter,
                 cv=section_prop.rc.cover,
                 reinforced_concrete=rc,
             )
+        
+        if design_cls is SteelDesignBase:
 
+            SteelGrade.load()
+            record = SteelGrade.get(section_prop.material_design)
+
+            # Check if SteelSection exist in data base (dbs or yaml)
+            SteelSection.load_dbs()
+            if not SteelSection.exists(name):
+                raise KeyError(f"[SteelSection] Section '{name}' not found in YAML/DBS database.")
+
+            Fu = record.fu
+            Fy = record.fy
+            Ry = record.ry
+            Rt = record.rt
+
+            steel_design_base = SteelDesignBase(
+                **steel_base,
+                section_option=SectionOption.NORMAL,
+                composite_option=CompositeOption.NONE,
+                connection_design=False,
+
+                section=name,
+                wf2='NOSECTION',
+                strong_axis=True,
+                h1_ho=1,
+                space=0,
+
+                Es=2100000,
+                Fu=Fu,
+                Fy=Fy,
+
+                Ag=0,
+                Rmin=0,
+                Wx=0,
+                Wy=0,
+                An_Ag=0.85,
+                material_name=section_prop.material_design,
+
+                left_haunch_length=0,
+                left_haunch_height=0,
+
+                right_haunch_length=0,
+                right_haunch_height=0,
+
+                Tu=0,
+                Ty=0,
+
+                tension_only=False,
+
+                Ry=Ry,
+                Rt=Rt,
+                )
+            
+            return steel_design_base
         raise ValueError(f"Unhandled design class {design_cls}")
 
     # ============================================================
@@ -778,6 +981,15 @@ class DesignFactory:
 
         elif isinstance(section_prop, SectionPropertyConcreteBiaxialColumn):
             delta = 1
+            column_rebar_faces=ColumnRebarFace.FOUR_FACES
+
+            nside = 0
+            sidebar_space=30
+
+            stirrup_type = StirrupType.RECTANGLE
+
+        elif isinstance(section_prop, SectionPropertyConcreteTeeColumn):
+            delta = 0.4
             column_rebar_faces=ColumnRebarFace.FOUR_FACES
 
             nside = 0
