@@ -2,8 +2,8 @@ from typing import List, Optional, Type
 
 from SANSPRO.model.model import Model
 from SANSPRO.collection.nodes import Nodes, NodesParse
-from object.point_load import PointLoad
-from collection._collection_abstract import Collection, CollectionParser, ObjectCollectionQuery, ObjectCollectionEngine, ObjectCollectionAdapter
+from SANSPRO.object.point_load import PointLoad
+from SANSPRO.collection._collection_abstract import Collection, CollectionParser, ObjectCollectionQuery, ObjectCollectionEngine, ObjectCollectionAdapter
 
 from variable.parameter import ParameterParse, ParameterAdapter
 
@@ -17,7 +17,7 @@ class PointLoadsParse(CollectionParser[Model, PointLoad, PointLoads]):
         return PointLoads
 
     @classmethod
-    def parse_line(cls, line: str, nodes: Nodes, index: int) -> 'PointLoad':
+    def parse_line(cls, line: str, index: int) -> 'PointLoad':
         parts = line.strip().split()
         fx_to_mz = parts[4].split(',')
 
@@ -25,7 +25,7 @@ class PointLoadsParse(CollectionParser[Model, PointLoad, PointLoads]):
             index=index,
             load_case=int(parts[0]),
             floor=int(parts[2]),
-            node=nodes.index(int(parts[3])),
+            node_id=int(parts[3]),
             fx=float(fx_to_mz[0]),
             fy=float(fx_to_mz[1]),
             fz=float(fx_to_mz[2]),
@@ -42,10 +42,8 @@ class PointLoadsParse(CollectionParser[Model, PointLoad, PointLoads]):
         block = model.blocks.get(collection_cls.header)
         parsed_items: List[PointLoad] = []
 
-        nodes = NodesParse.from_model(model)
-
         for i, line in enumerate(block.body, start=1):
-            parsed_item = cls.parse_line(line, nodes, index=i)
+            parsed_item = cls.parse_line(line, index=i)
             parsed_items.append(parsed_item)
 
         return collection_cls(parsed_items)
@@ -67,7 +65,7 @@ class PointLoadsAdapter(ObjectCollectionAdapter[Model, PointLoad, PointLoads]):
         load_case = int(point_load.load_case)
 
         floor = int(point_load.floor)
-        node = int(point_load.node.index)
+        node = int(point_load.node_id)
         fx = cls._norm_float(point_load.fx)
         fy = cls._norm_float(point_load.fy)
         fz = cls._norm_float(point_load.fz)

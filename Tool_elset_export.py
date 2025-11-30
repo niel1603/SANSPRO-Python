@@ -17,7 +17,7 @@ from SANSPRO.util.excel_export import export_multiple_collections_to_excel, stri
 # ==============================
 
 full_path = Path(
-    r"D:\COMPUTATIONAL\Model\SANSPRO\RUKO\TIPE 1\TIPE 1_v1_3.MDL"
+    r"D:\COMPUTATIONAL\Model\SANSPRO\RUKO\TIPE 1\TIPE 1_v1_2.MDL"
 )
 folder_path = str(full_path.parent)
 model_name = full_path.stem

@@ -17,6 +17,7 @@ from SANSPRO.variable.building import BuildingParse, BuildingAdapter
 
 class Slabs(Collection[Slab]):
     header = "FLOORSLAB"
+    item_type = Slab
 
 
 class SlabsParse(CollectionParser[Model, Slab, Slabs]):

@@ -425,7 +425,7 @@ class DesignsAdapter(ObjectCollectionAdapter[Model, DesignConcreteBase, Designs]
         g_lr = cls._norm_float(d.gravity_load_reduction)
         e_lr = cls._norm_float(d.earthquake_load_reduction)
 
-        line1 = f'{i:>4}{t_i:>4} {t_n:<12} {n} {f_i} {s_t} {d_c} {c_k} {s_de} {s_di} {u_g}'
+        line1 = f'{i:>4} {t_i:>3} {t_n:<12} {n} {f_i} {s_t} {d_c} {c_k} {s_de} {s_di} {u_g}'
         line2 = f'      {p_f} {p_tf} {p_fc} {p_fcs} {p_sh} {p_tr} {p_br} {p_cn}   {k_x} {k_y} {l_u} {l_ux} {l_uy}   {c_mx} {c_my} {cb} {g_lr} {e_lr}'
 
         return line1, line2

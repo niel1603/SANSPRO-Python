@@ -224,7 +224,7 @@ class SectionsAdapter(ObjectCollectionAdapter[Model, SectionBase, Sections]):
 
         t = cls._norm_float(s.thickness)
 
-        line1 = f'{i:>4}{t_i:>4} {t_n:<12} {m_0} {m_1} {m_2} {m_3}{m_4:>8.2f}{m_5:>8.2f} {n}'
+        line1 = f'{i:>4} {t_i:>3} {t_n:<12} {m_0} {m_1} {m_2} {m_3} {m_4:>7.2f} {m_5:>7.2f} {n}'
         line2 = f'      {t}'
 
         line = f'{line1}\n{line2}'
@@ -251,7 +251,7 @@ class SectionsAdapter(ObjectCollectionAdapter[Model, SectionBase, Sections]):
         h = cls._norm_float(s.height)
         s_t = cls._norm_float(s.slab_thick)
 
-        line1 = f'{i:>4}{t_i:>4} {t_n:<12} {m_0} {m_1} {m_2} {m_3}{m_4:>8.2f}{m_5:>8.2f} {n}'
+        line1 = f'{i:>4} {t_i:>3} {t_n:<12} {m_0} {m_1} {m_2} {m_3} {m_4:>7.2f} {m_5:>7.2f} {n}'
         line2 = f'      {w} {h} {w} {s_t}'
 
         line = f'{line1}\n{line2}'
@@ -279,7 +279,7 @@ class SectionsAdapter(ObjectCollectionAdapter[Model, SectionBase, Sections]):
         t_w = cls._norm_float(s.thick_web)
         t_f = cls._norm_float(s.thick_flange)
 
-        line1 = f'{i:>4}{t_i:>4} {t_n:<12} {m_0} {m_1} {m_2} {m_3}{m_4:>8.2f}{m_5:>8.2f} {n}'
+        line1 = f'{i:>4} {t_i:>3} {t_n:<12} {m_0} {m_1} {m_2} {m_3} {m_4:>7.2f} {m_5:>7.2f} {n}'
         line2 = f'      {w} {h} {t_w} {t_f}'
 
         line = f'{line1}\n{line2}'
@@ -304,7 +304,7 @@ class SectionsAdapter(ObjectCollectionAdapter[Model, SectionBase, Sections]):
 
         d = cls._norm_float(s.diameter)
 
-        line1 = f'{i:>4}{t_i:>4} {t_n:<12} {m_0} {m_1} {m_2} {m_3}{m_4:>8.2f}{m_5:>8.2f} {n}'
+        line1 = f'{i:>4} {t_i:>3} {t_n:<12} {m_0} {m_1} {m_2} {m_3} {m_4:>7.2f} {m_5:>7.2f} {n}'
         line2 = f'      {d}'
 
         line = f'{line1}\n{line2}'
@@ -329,7 +329,7 @@ class SectionsAdapter(ObjectCollectionAdapter[Model, SectionBase, Sections]):
 
         sa = int(s.strong_axis)
 
-        line1 = f'{i:>4}{t_i:>4} {t_n:<12} {m_0} {m_1} {m_2} {m_3}{m_4:>8.2f}{m_5:>8.2f} {n}'
+        line1 = f'{i:>4} {t_i:>3} {t_n:<12} {m_0} {m_1} {m_2} {m_3} {m_4:>7.2f} {m_5:>7.2f} {n}'
         line2 = f'     {n} {sa}'
 
         line = f'{line1}\n{line2}'

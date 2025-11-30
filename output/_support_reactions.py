@@ -11,7 +11,7 @@ from SANSPRO.collection.nodes import Nodes
 
 @dataclass
 class SupportReaction:
-    node: Node
+    node_id: Node
     fx: float
     fy: float
     fz: float
@@ -56,10 +56,10 @@ class SupportReactionsParser:
                     parts = re.split(r"\s+", stripped)
                     if len(parts) == 7:
                         node_idx = int(parts[0])
-                        node = nodes.index(node_idx)
+                        node = nodes.get(node_idx)
                         values = list(map(float, parts[1:]))
                         reaction = SupportReaction(
-                            node=node,
+                            node_id=node.index,
                             fx=values[0],
                             fy=values[1],
                             fz=values[2],
@@ -94,7 +94,7 @@ class SupportReactionsEngine:
         # Get node mapping once
         node_map = {}
         for reaction in support_reactions_dict[combo_ids[0]].reactions:
-            node_map[reaction.node.index] = reaction.node
+            node_map[reaction.node_id] = reaction.node_id
         
         point_loads = []
         index_counter = 1
@@ -112,7 +112,7 @@ class SupportReactionsEngine:
                 for combo_id in combo_ids:
                     A.append(combo_factored[combo_id])
                     reaction = next(r for r in support_reactions_dict[combo_id].reactions 
-                                  if r.node.index == node_id)
+                                  if r.node_id == node_id)
                     b.append(getattr(reaction, comp))
                 
                 # Solve for individual case values
@@ -135,7 +135,7 @@ class SupportReactionsEngine:
                     index=index_counter,
                     load_case=case_id,
                     floor=floor,
-                    node=node_obj,
+                    node_id=node_id,
                     fx=-components_data["fx"],
                     fy=-components_data["fy"],
                     fz=-components_data["fz"],

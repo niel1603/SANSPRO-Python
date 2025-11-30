@@ -7,7 +7,7 @@ from dataclasses import asdict, is_dataclass, replace
 
 from SANSPRO.model.model import Model
 from SANSPRO.object.elset import Elset
-from collection._collection_abstract import Collection, CollectionParser, ObjectCollectionQuery, ObjectCollectionEngine, ObjectCollectionAdapter
+from SANSPRO.collection._collection_abstract import Collection, CollectionParser, ObjectCollectionQuery, ObjectCollectionEngine, ObjectCollectionAdapter
 
 from SANSPRO.object.material import MaterialBase
 from SANSPRO.object.section import SectionBase

@@ -8,6 +8,7 @@ from SANSPRO.model.model import ModelAdapter
 from SANSPRO.collection.nodes import Nodes, NodesParse, NodesAdapter
 from SANSPRO.collection.offsets import Offsets, OffsetsAdapter
 from SANSPRO.collection.stories import Stories, StoriesAdapter
+from SANSPRO.collection.slabs import Slabs, SlabsAdapter
 
 from SANSPRO.collection.materials import MaterialsParse
 from SANSPRO.collection.sections import SectionsParse
@@ -17,18 +18,19 @@ from SANSPRO.collection.elsets import ElsetsParse
 from SANSPRO.collection._collection_abstract import ObjectCollectionAdapter
 from SANSPRO.compact.layout.beam_layout_compact import BeamCompact, CompactBeamLayout, CompactBeamLayouts
 from SANSPRO.compact.layout.column_layout_compact import ColumnCompact, CompactColumnLayout, CompactColumnLayouts
+from SANSPRO.compact.layout.region_layout_compact import RegionCompact, CompactRegionLayout, CompactRegionLayouts
 
 # ==============================
 # SINGLE INPUT PATH
 # ==============================
 
 input_model = Path(
-    r"D:\COMPUTATIONAL\Model\SANSPRO\KAVLING CARSON\KAVLING CARSON_v1_1.MDL"
+    r"D:\COMPUTATIONAL\Model\SANSPRO\RUKO\TIPE 1\TIPE 1_v1_4.xlsx"
 )
 folder_path = str(input_model.parent)
 file_name = input_model.stem
 increment_version = 0
-increment_sub_version = 2
+increment_sub_version = 1
 
 main_version = file_name.rsplit("_", 1)[0]
 model_name = main_version.rsplit("v", 1)[0]
@@ -77,17 +79,21 @@ collections = ObjectCollectionAdapter.from_excel(
         "Nodes": Nodes,
         "Offsets": Offsets,
         "Stories": Stories,
-    }
+        "Slabs": Slabs,
+    },
+    elsets=elsets
 )
 
 nodes_imported: Nodes = collections["Nodes"]
 offsets_imported: Offsets = collections["Offsets"]
 stories_imported: Stories = collections["Stories"]
+slabs_imported: Slabs = collections["Slabs"]
 
 model = model
 model = NodesAdapter.to_model(nodes_imported, model)
 model = OffsetsAdapter.to_model(offsets_imported, model)
 model = StoriesAdapter.to_model(stories_imported, model)
+model = SlabsAdapter.to_model(slabs_imported, model)
 
 # -------------------------------------------------------------
 # IMPORT HIGH LEVEL GEOMETRY : Beam Layouts and Column Layouts 
@@ -117,10 +123,24 @@ column_layouts = compact_column_layouts.to_full(
     elsets=elsets
 )
 
-from SANSPRO.layout.beam_layout import BeamLayoutsParse, BeamLayoutsAdapter
-from SANSPRO.layout.column_layout import ColumnLayoutsParse, ColumnLayoutsAdapter
+compact_region_layouts = CompactRegionLayouts.from_excel(
+    folder=folder_path,
+    excel_name='Regions',
+    layout_cls=CompactRegionLayout,
+    item_cls=RegionCompact,
+)
+
+regions = compact_region_layouts.to_full(
+    nodes=nodes_imported,
+    slabs=slabs_imported
+)
+
+from SANSPRO.layout.beam_layout import BeamLayoutsAdapter
+from SANSPRO.layout.column_layout import  ColumnLayoutsAdapter
+from SANSPRO.layout.regions import RegionsAdapter
 
 model = BeamLayoutsAdapter.to_model(beam_layouts, model)
 model = ColumnLayoutsAdapter.to_model(column_layouts, model)
+model = RegionsAdapter.to_model(regions, model)
 
 model_adapter.to_text(model= model, folder_path=folder_path, model_name=output_filename)

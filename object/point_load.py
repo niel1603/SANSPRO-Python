@@ -1,13 +1,12 @@
 from dataclasses import dataclass
 
 from object._object_abstract import Object
-from SANSPRO.object.node import Node
 
 @dataclass
 class PointLoad(Object):
     load_case: int
     floor: int
-    node: Node
+    node_id: int
     fx: float
     fy: float
     fz: float

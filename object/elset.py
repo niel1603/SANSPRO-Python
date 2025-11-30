@@ -7,7 +7,7 @@ from typing import TypeVar, Type
 from object._object_abstract import Object
 
 from SANSPRO.object.section import SectionBase
-from SANSPRO.object.design import DesignConcreteBase
+from SANSPRO.object.design import DesignBase
 from SANSPRO.object.material import MaterialBase
 
 # old
@@ -22,5 +22,5 @@ from SANSPRO.object.material import MaterialBase
 class Elset(Object):
     material: MaterialBase
     section: SectionBase
-    design: DesignConcreteBase
+    design: DesignBase
     texture: int

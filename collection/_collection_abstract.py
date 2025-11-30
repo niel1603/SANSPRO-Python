@@ -343,6 +343,35 @@ class ObjectCollectionAdapter(ABC, Generic[M, T, C]):
             flat.pop(k, None)
 
         return flat
+    
+    @classmethod
+    def _infer_headers_from_type(cls, typ) -> List[str]:
+        if not is_dataclass(typ):
+            raise TypeError(f"Expected dataclass type, got {typ}")
+
+        headers = []
+
+        for f in typ.__dataclass_fields__.values():
+            t = f.type
+
+            if is_dataclass(t):
+                sub = cls._infer_headers_from_type(t)
+                headers.extend([f"{f.name}.{x}" for x in sub])
+            else:
+                headers.append(f.name)
+
+        return headers
+    
+    @staticmethod
+    def _normalize_excel_value(v):
+        """
+        Excel cannot store tuples, lists, dicts, or custom objects directly.
+        Convert tuples into CSV strings (e.g. (1,2,3) -> '1,2,3').
+        Leave other primitive types untouched.
+        """
+        if isinstance(v, tuple):
+            return ",".join(str(x) for x in v)
+        return v
 
     @classmethod
     def export_to_excel(
@@ -351,11 +380,6 @@ class ObjectCollectionAdapter(ABC, Generic[M, T, C]):
         folder_path: str,
         excel_name: str,
     ):
-        """
-        Export collections to Excel.
-        Each collection must be (sheet_name, collection_object).
-        Uses internal flatten + pruning rules.
-        """
         if not collections:
             raise ValueError("No collections provided")
 
@@ -366,21 +390,35 @@ class ObjectCollectionAdapter(ABC, Generic[M, T, C]):
         wb.remove(wb.active)
 
         for sheet_name, collection in collections:
-            objs = collection.objects
-            if not objs:
-                continue
-
+            print(collection.header)
             ws = wb.create_sheet(title=sheet_name)
 
-            # compute headers from first object
-            first_flat = cls._flatten(objs[0])
-            headers = list(first_flat.keys())
+            objs = collection.objects
+
+            # ================================================
+            # Determine headers
+            # ================================================
+            if objs:
+                first_flat = cls._flatten(objs[0])
+                headers = list(first_flat.keys())
+            else:
+                obj_type = getattr(collection, "item_type", None)
+                if obj_type is None:
+                    raise ValueError(f"Collection '{sheet_name}' has no item_type")
+                headers = cls._infer_headers_from_type(obj_type)
+
+            # Write headers always
             ws.append(headers)
 
-            # write objects
+            # ================================================
+            # Rows for non-empty collections
+            # ================================================
             for obj in objs:
                 flat = cls._flatten(obj)
-                row = [flat.get(h, "") for h in headers]
+                row = [
+                    cls._normalize_excel_value(flat.get(h, ""))
+                    for h in headers
+                ]
                 ws.append(row)
 
         wb.save(filepath)
@@ -390,6 +428,100 @@ class ObjectCollectionAdapter(ABC, Generic[M, T, C]):
     # -------------------------------------------------------------
     # IMPORT EXCEL
     # -------------------------------------------------------------
+
+    # @classmethod
+    # def _resolve_references(cls, collections: dict):
+    #     """
+    #     Replace placeholder nested objects with real instances,
+    #     matched by (type, index).
+    #     """
+
+    #     # Build global lookup
+    #     lookup = {}
+
+    #     for coll in collections.values():
+    #         if not hasattr(coll, "objects"):
+    #             continue
+
+    #         for obj in coll.objects:
+    #             if isinstance(obj, Object):
+    #                 lookup[(type(obj), obj.index)] = obj
+
+    #     # Resolve nested references
+    #     for coll in collections.values():
+    #         for obj in coll.objects:
+    #             for f in fields(type(obj)):
+    #                 val = getattr(obj, f.name)
+
+    #                 # is it a placeholder nested object?
+    #                 if isinstance(val, Object) and val.index is not None:
+    #                     key = (type(val), val.index)
+
+    #                     if key in lookup:
+    #                         setattr(obj, f.name, lookup[key])
+    #                     else:
+    #                         print(f"⚠ Missing reference: {type(val).__name__}[{val.index}]")
+
+
+    @classmethod
+    def _resolve_elsets(cls, collections: dict, elsets: Collection):
+        """
+        Replace any `.elset` placeholder with the real Elset.
+        Report only once at the end whether resolution succeeded or failed.
+        """
+
+        elset_map = {e.index: e for e in elsets.objects}
+
+        total = 0
+        resolved = 0
+        failed = 0
+
+        for coll_name, coll in collections.items():
+            if not hasattr(coll, "objects"):
+                continue
+
+            for obj in coll.objects:
+
+                # only objects that actually use an elset
+                if not hasattr(obj, "elset"):
+                    continue
+
+                placeholder = obj.elset
+                if placeholder is None:
+                    continue
+
+                total += 1
+
+                # extract index
+                try:
+                    idx = placeholder.index
+                except AttributeError:
+                    idx = placeholder  # raw int fallback
+
+                # attempt resolution
+                real = elset_map.get(idx)
+                if real is None:
+                    failed += 1
+                    continue
+
+                obj.elset = real
+                resolved += 1
+
+        # --------------------------------------
+        # FINAL SUMMARY NOTICE (the important part)
+        # --------------------------------------
+        if total == 0:
+            print("ℹ No elset references to resolve.")
+            return
+
+        if failed == 0:
+            print(f"✓ All elsets resolved successfully ({resolved}/{total}).")
+        else:
+            print(
+                f"⚠ Elset resolution incomplete: "
+                f"{resolved}/{total} resolved, {failed} missing."
+            )
+
 
     @classmethod
     def _resolve_references(cls, collections: dict):
@@ -401,7 +533,7 @@ class ObjectCollectionAdapter(ABC, Generic[M, T, C]):
         # Build global lookup
         lookup = {}
 
-        for coll in collections.values():
+        for coll_name, coll in collections.items():
             if not hasattr(coll, "objects"):
                 continue
 
@@ -410,7 +542,10 @@ class ObjectCollectionAdapter(ABC, Generic[M, T, C]):
                     lookup[(type(obj), obj.index)] = obj
 
         # Resolve nested references
-        for coll in collections.values():
+        for coll_name, coll in collections.items():
+            if not hasattr(coll, "objects"):
+                continue
+
             for obj in coll.objects:
                 for f in fields(type(obj)):
                     val = getattr(obj, f.name)
@@ -422,8 +557,17 @@ class ObjectCollectionAdapter(ABC, Generic[M, T, C]):
                         if key in lookup:
                             setattr(obj, f.name, lookup[key])
                         else:
-                            print(f"⚠ Missing reference: {type(val).__name__}[{val.index}]")
+                            parent_type = type(obj).__name__
+                            parent_index = getattr(obj, "index", "?")
+                            field_name = f.name
+                            missing_type = type(val).__name__
+                            missing_index = val.index
 
+                            print(
+                                f"⚠ Missing reference in {coll_name}: "
+                                f"{parent_type}[{parent_index}].{field_name} → "
+                                f"{missing_type}[{missing_index}] not found"
+                            )
 
     @classmethod
     def _from_excel_row(cls, data: dict, dataclass_type):
@@ -485,7 +629,7 @@ class ObjectCollectionAdapter(ABC, Generic[M, T, C]):
 
 
     @classmethod
-    def from_excel(cls, folder_path: str, excel_name: str, mapping: dict):
+    def from_excel(cls, folder_path: str, excel_name: str, mapping: dict, elsets:Collection = None):
         """
         mapping = {
             "Nodes": Nodes,      # collection class
@@ -521,6 +665,10 @@ class ObjectCollectionAdapter(ABC, Generic[M, T, C]):
         # 2) Auto-resolve references across all collections
         # ---------------------------------------------------------
         cls._resolve_references(collections)
+
+        # 3. bind elsets if provided
+        if elsets is not None:
+            cls._resolve_elsets(collections, elsets)
 
         return collections
 

@@ -1,13 +1,17 @@
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 from pathlib import Path
 
-from model.model import ModelAdapter
+from SANSPRO.model.model import ModelAdapter
 
-from output.output import OutputAdapter
-from output._support_reactions import SupportReactionsEngine
+from SANSPRO.output.output import OutputAdapter
+from SANSPRO.output._support_reactions import SupportReactionsEngine
 
-from variable.loading import LoadingParse, LoadingEngine, LoadingAdapter
+from SANSPRO.variable.loading import LoadingParse, LoadingEngine, LoadingAdapter
 
-from collection.point_loads import PointLoadsAdapter
+from SANSPRO.collection.point_loads import PointLoadsAdapter
 
 # Step 1 Create new model with template load combination
 # -> Input full_path
@@ -20,7 +24,7 @@ from collection.point_loads import PointLoadsAdapter
 # ==============================
 # Input base model path
 full_path = Path(
-    r"F:\DANIEL\1_PROJECTS\G12372_Solo Urbana Bolon\CALCULATION\SANSPRO\L7\SANSPRO_UB L7_3_8.MDL"
+    r"D:\COMPUTATIONAL\Model\SANSPRO\RUKO\TIPE 1\TIPE 1_v1_5.MDL"
 )
 # ==============================
 
