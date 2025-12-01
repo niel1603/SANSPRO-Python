@@ -1,6 +1,8 @@
+import math
 from typing import Type, List
 
 from SANSPRO.model.model import Model
+from SANSPRO.object.node import Node
 from SANSPRO.object.column import Column
 from SANSPRO.collection.nodes import Nodes
 from SANSPRO.collection.elsets import Elsets
@@ -77,6 +79,149 @@ class ColumnsParse(CollectionParser[Model, Column, Columns]):
     def from_model(cls, model: Model, nodes: Nodes, elsets: Elsets) -> Columns:
         cls._col_counter = 0
         return super().from_model(model, nodes=nodes, elsets=elsets)
+    
+class ColumnsEngine(ObjectCollectionEngine[Column, Columns]):
+
+    @staticmethod
+    def replicate(
+        columns: Columns,
+        nodes: Nodes,
+        existing_columns: list[Column],
+        nx=0, ny=0, nz=0,
+        dx=0.0, dy=0.0, dz=0.0,
+        include_original=True,
+        tol: float = 1e-6
+    ) -> Columns:
+
+        base_cols = columns.objects
+        all_nodes = nodes.objects
+
+        # Duplicate checker: existing + optionally base
+        check_cols = list(existing_columns)
+        if include_original:
+            check_cols.extend(base_cols)
+
+        next_index = max((c.index for c in check_cols), default=0) + 1
+        new_cols: list[Column] = []
+
+        # ---- node finder ----
+        def find_node(x, y, z):
+            for n in all_nodes:
+                if (
+                    abs(n.x - x) < tol and
+                    abs(n.y - y) < tol and
+                    abs(n.z - z) < tol
+                ):
+                    return n
+            return None
+
+        # ---- exists check ----
+        def col_exists(nloc):
+            for c in check_cols:
+                lc = c.location
+                if (
+                    abs(lc.x - nloc.x) < tol and
+                    abs(lc.y - nloc.y) < tol and
+                    abs(lc.z - nloc.z) < tol
+                ):
+                    return True
+            return False
+
+        # ---- replicate ----
+        for c in base_cols:
+            x, y, z = c.location.x, c.location.y, c.location.z
+
+            for ix in range(nx+1):
+                for iy in range(ny+1):
+                    for iz in range(nz+1):
+
+                        if ix == iy == iz == 0:
+                            continue
+
+                        xx = x + ix*dx
+                        yy = y + iy*dy
+                        zz = z + iz*dz
+
+                        nloc = find_node(xx, yy, zz)
+                        if nloc is None:
+                            continue
+
+                        if col_exists(nloc):
+                            continue
+
+                        new_c = Column(
+                            index=next_index,
+                            location=nloc,
+                            elset=c.elset,
+                            group=c.group,
+                            alpha=c.alpha,
+                            misc=c.misc,
+                        )
+
+                        new_cols.append(new_c)
+                        check_cols.append(new_c)
+                        next_index += 1
+
+        return Columns(objects=new_cols)
+
+    @staticmethod
+    def mirror(columns: Columns,
+               nodes: Nodes,
+               x1: float, y1: float,
+               x2: float, y2: float,
+               include_original=True) -> Columns:
+
+        tol = 1e-6
+
+        # Node lookup table
+        node_lookup = {
+            (round(n.x,6), round(n.y,6), round(n.z,6)): n
+            for n in nodes.objects
+        }
+
+        def mirror_point(px, py, pz):
+            dx = x2 - x1
+            dy = y2 - y1
+            L = math.hypot(dx, dy)
+            if L < 1e-12:
+                raise ValueError("Mirror line cannot be a point.")
+            ux, uy = dx/L, dy/L
+
+            old_px, old_py = px - x1, py - y1
+
+            rx =  ux*old_px + uy*old_py
+            ry = -uy*old_px + ux*old_py
+            ry = -ry   # reflect
+
+            mx =  ux*rx - uy*ry + x1
+            my =  uy*rx + ux*ry + y1
+
+            return mx, my, pz
+
+        base = columns.objects
+        out = base.copy() if include_original else []
+
+        next_index = max((c.index for c in base), default=0) + 1
+        new_cols: List[Column] = []
+
+        for c in base:
+            mx, my, mz = mirror_point(c.location.x, c.location.y, c.location.z)
+            key = (round(mx,6), round(my,6), round(mz,6))
+            if key not in node_lookup:
+                continue
+
+            new_cols.append(Column(
+                index=next_index,
+                location=node_lookup[key],
+                elset=c.elset,
+                group=c.group,
+                alpha=c.alpha,
+                misc=c.misc
+            ))
+            next_index += 1
+
+        out.extend(new_cols)
+        return Columns(objects=out)
 
 class ColumnsAdapter(ObjectCollectionAdapter[Model, Column, Columns]):
 

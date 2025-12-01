@@ -673,32 +673,30 @@ class ObjectCollectionAdapter(ABC, Generic[M, T, C]):
         return collections
 
 class ObjectCollectionQuery(ABC, Generic[T, C]):
-    
+    TOL = 1e-6
+
     @staticmethod
     @abstractmethod
     def get_by_indices(collection: C, indices: List[int]) -> C:
-        """Return a subset of the collection containing objects matching the indices."""
-        pass
+        raise NotImplementedError
 
     @staticmethod
     @abstractmethod
     def get_by_offset(collection: C, dx: float, dy: float, dz: float,
                       origin: Optional[T] = None) -> Optional[T]:
-        """Return an object offset by (dx, dy, dz) from origin in the collection."""
-        pass
+        raise NotImplementedError
 
     @staticmethod
     @abstractmethod
     def select_by_polygon(collection: C, boundary_indices: List[int]) -> C:
-        """Return a subset of the collection that falls inside the polygon defined by boundary indices."""
-        pass
+        raise NotImplementedError
 
 class ObjectCollectionEngine(ABC, Generic[T, C]):
 
     @staticmethod
     @abstractmethod
     def replicate(base_collection: C,
-                  selected_objects: C,
+                  collection_to_copy: C,
                   *args, **kwargs) -> C:
         """Replicate selected_objects within base_collection under given params."""
         pass

@@ -1,8 +1,9 @@
+import math
 from typing import List, Optional, Type, Tuple
 
 from SANSPRO.model.model import Model
 from SANSPRO.object.node import Node
-from collection._collection_abstract import (
+from SANSPRO.collection._collection_abstract import (
     Collection, 
     CollectionParser, 
     ObjectCollectionQuery, 
@@ -78,6 +79,7 @@ class NodesAdapter(ObjectCollectionAdapter[Model, Node, Nodes]):
         return f"   {node.index}  {x_str} {y_str}  {z_str}   "
 
 class NodeQuery(ObjectCollectionQuery[Node, Nodes]):
+    TOL = 1e-6
 
     @staticmethod
     def get_bounds(collection: Nodes) -> Tuple[float, float, float, float]:
@@ -91,7 +93,7 @@ class NodeQuery(ObjectCollectionQuery[Node, Nodes]):
     
     @staticmethod
     def get_by_indices(collection: Nodes, indices: List[int]) -> Nodes:
-        selected_nodes = [collection.index(i) for i in indices if collection.index(i) is not None]
+        selected_nodes = [collection.get(i) for i in indices if collection.get(i) is not None]
         result = Nodes(selected_nodes)
         return result
 
@@ -162,47 +164,144 @@ class NodesEngine(ObjectCollectionEngine[Node, Nodes]):
 
     @staticmethod
     def replicate(base_collection: Nodes,
-                  selected_objects: Nodes,
-                  nx=1, ny=1, nz=1,
-                  dx=0.0, dy=0.0, dz=0.0) -> Nodes:
+                  collection_to_copy: Nodes,
+                  nx: int = 0, ny: int = 0, nz: int = 0,
+                  dx: float = 0.0, dy: float = 0.0, dz: float = 0.0,
+                  return_map: bool = False):
 
         tol = 1e-6
-        index_counter = max((n.index for n in base_collection.objects), default=0) + 1
 
-        def node_exists(x: float, y: float, z: float) -> bool:
+        base_list = base_collection.objects
+        copy_list = collection_to_copy.objects
+
+        # result starts as a copy of base_list
+        result_list = base_list.copy()
+
+        # node_map must always include the original node
+        node_map: dict[int, list[Node]] = {
+            n.index: [n] for n in copy_list
+        }
+
+        next_index = max((n.index for n in base_list), default=0) + 1
+        new_nodes: list[Node] = []
+
+        def exists(x, y, z):
             return any(
-                abs(n.x - x) < tol and abs(n.y - y) < tol and abs(n.z - z) < tol
-                for n in base_collection.objects
+                abs(n.x - x) < tol and
+                abs(n.y - y) < tol and
+                abs(n.z - z) < tol
+                for n in result_list
             )
 
-        new_nodes: List[Node] = []
+        for n in copy_list:
 
-        for node in selected_objects.objects:
-            for ix in range(nx):
-                for iy in range(ny):
-                    for iz in range(nz):
-                        if ix == iy == iz == 0:
+            for ix in range(nx + 1):
+                for iy in range(ny + 1):
+                    for iz in range(nz + 1):
+
+                        # skip original position
+                        if ix == 0 and iy == 0 and iz == 0:
                             continue
 
-                        new_x = node.x + dx * ix
-                        new_y = node.y + dy * iy
-                        new_z = node.z + dz * iz
+                        new_x = n.x + ix * dx
+                        new_y = n.y + iy * dy
+                        new_z = n.z + iz * dz
 
-                        if node_exists(new_x, new_y, new_z):
+                        # avoid duplicates
+                        if exists(new_x, new_y, new_z):
                             continue
 
                         new_node = Node(
-                            index=index_counter,
+                            index=next_index,
                             x=new_x,
                             y=new_y,
                             z=new_z
                         )
+
                         new_nodes.append(new_node)
-                        index_counter += 1
+                        node_map[n.index].append(new_node)
+                        next_index += 1
 
-        new_nodes.sort(key=lambda n: n.index)
-        result_collection = Nodes(objects=base_collection.objects.copy())
-        result_collection.extend(new_nodes)
+        # merge new nodes into result_list
+        result_list.extend(new_nodes)
 
-        return result_collection
+        result = Nodes(objects=result_list)
 
+        if return_map:
+            return result, node_map
+        return result
+            
+    @staticmethod
+    def mirror(
+        nodes: Nodes,
+        x1: float, y1: float,
+        x2: float, y2: float,
+        include_original: bool = True
+    ) -> Nodes:
+
+        tol = 1e-6
+        base_nodes = nodes.objects
+
+        # result list (before renumbering)
+        result_nodes: list[Node] = (
+            base_nodes.copy() if include_original else []
+        )
+
+        new_nodes: list[Node] = []
+        # next_index does NOT matter anymore (will renumber later)
+        next_index = len(result_nodes) + 1
+
+        # mirror line
+        dx = x2 - x1
+        dy = y2 - y1
+        L = math.hypot(dx, dy)
+        if L < 1e-12:
+            raise ValueError("Mirror line cannot be a single point.")
+
+        ux = dx / L
+        uy = dy / L
+        cos_t = ux
+        sin_t = uy
+
+        def exists(x: float, y: float, z: float) -> bool:
+            return any(
+                abs(n.x - x) < tol
+                and abs(n.y - y) < tol
+                and abs(n.z - z) < tol
+                for n in result_nodes
+            )
+
+        # mirror each base node
+        for n in base_nodes:
+
+            px = n.x - x1
+            py = n.y - y1
+
+            # rotate to axis
+            rx = cos_t * px + sin_t * py
+            ry = -sin_t * px + cos_t * py
+
+            # reflect
+            ry = -ry
+
+            # rotate back
+            mx = cos_t * rx - sin_t * ry + x1
+            my = sin_t * rx + cos_t * ry + y1
+            mz = n.z
+
+            if exists(mx, my, mz):
+                continue
+
+            new_nodes.append(Node(index=next_index, x=mx, y=my, z=mz))
+            next_index += 1
+
+        # append new nodes
+        result_nodes.extend(new_nodes)
+
+        # ------------------------------------------
+        # 🔥 FIX: renumber nodes cleanly 1..N
+        # ------------------------------------------
+        for i, node in enumerate(result_nodes, start=1):
+            node.index = i
+
+        return Nodes(objects=result_nodes)
