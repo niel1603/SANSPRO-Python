@@ -233,7 +233,7 @@ class ColumnLayoutsEngine(LayoutEngine[Column, ColumnLayout, ColumnLayouts]):
 
         base = Columns(objects=items)
 
-        # 2) replicate — returns *only* new columns
+        # 2) replicate — new columns only
         new_cols = ColumnsEngine.replicate(
             columns=base,
             nodes=nodes,
@@ -243,12 +243,14 @@ class ColumnLayoutsEngine(LayoutEngine[Column, ColumnLayout, ColumnLayouts]):
             include_original=include_original,
         )
 
-        # 3) include originals?
-        result_items = list(items) + new_cols.objects if include_original else new_cols.objects
+        # 3) combine originals + new copies
+        if include_original:
+            result_items = list(target_layout.items) + list(items) + list(new_cols.objects)
+        else:
+            result_items = list(target_layout.items) + list(new_cols.objects)
 
-        target_layout.items = []   # required by LayoutEngine
+        # DO NOT CLEAR target_layout.items HERE
         return result_items
-
     
 class ColumnLayoutsAdapter(LayoutAdapter[Model, Column, ColumnLayout, ColumnLayouts]):
 

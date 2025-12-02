@@ -78,7 +78,6 @@ stories1 = StoriesParse.from_model(model1)
 # ==============================
 
 beam_loads1 = BeamLoadsParse.from_model(model1)
-
 beam_layouts1 = BeamLayoutsParse.from_model(model1, nodes1, elsets1)
 column_layouts1 = ColumnLayoutsParse.from_model(model1, nodes1, elsets1)
 regions1 = RegionsParse.from_model(model1, nodes1, slabs1)
